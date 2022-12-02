@@ -5,7 +5,7 @@ import Config
 # The MIX_TEST_PARTITION environment variable can be used
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
-config :nautic_net_web, NauticNet.Repo,
+config :nautic_net, NauticNet.Repo,
   username: "postgres",
   password: "postgres",
   hostname: "localhost",
@@ -16,13 +16,13 @@ config :nautic_net_web, NauticNet.Repo,
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
-config :nautic_net_web, NauticNetWeb.Endpoint,
+config :nautic_net, NauticNetWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "1h35hBLpBB4u5KrTKiEAb+LdOVjaP/YJGEf06YWtdpkl9ymknF1IrbZ2LVeW6BlH",
   server: false
 
 # In test we don't send emails.
-config :nautic_net_web, NauticNet.Mailer, adapter: Swoosh.Adapters.Test
+config :nautic_net, NauticNet.Mailer, adapter: Swoosh.Adapters.Test
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false

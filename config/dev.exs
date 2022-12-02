@@ -1,7 +1,7 @@
 import Config
 
 # Configure your database
-config :nautic_net_web, NauticNet.Repo,
+config :nautic_net, NauticNet.Repo,
   username: "postgres",
   password: "postgres",
   hostname: "localhost",
@@ -17,7 +17,7 @@ config :nautic_net_web, NauticNet.Repo,
 # The watchers configuration can be used to run external
 # watchers to your application. For example, we use it
 # with esbuild to bundle .js and .css sources.
-config :nautic_net_web, NauticNetWeb.Endpoint,
+config :nautic_net, NauticNetWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
   http: [ip: {127, 0, 0, 1}, port: 4000],
@@ -54,7 +54,7 @@ config :nautic_net_web, NauticNetWeb.Endpoint,
 # different ports.
 
 # Watch static and templates for browser reloading.
-config :nautic_net_web, NauticNetWeb.Endpoint,
+config :nautic_net, NauticNetWeb.Endpoint,
   live_reload: [
     patterns: [
       ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
@@ -64,7 +64,7 @@ config :nautic_net_web, NauticNetWeb.Endpoint,
   ]
 
 # Enable dev routes for dashboard and mailbox
-config :nautic_net_web, dev_routes: true
+config :nautic_net, dev_routes: true
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :console, format: "[$level] $message\n"

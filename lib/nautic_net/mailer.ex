@@ -1,3 +1,3 @@
 defmodule NauticNet.Mailer do
-  use Swoosh.Mailer, otp_app: :nautic_net_web
+  use Swoosh.Mailer, otp_app: :nautic_net
 end

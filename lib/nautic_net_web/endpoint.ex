@@ -1,5 +1,5 @@
 defmodule NauticNetWeb.Endpoint do
-  use Phoenix.Endpoint, otp_app: :nautic_net_web
+  use Phoenix.Endpoint, otp_app: :nautic_net
 
   # The session will be stored in the cookie and signed,
   # this means its contents can be read but not tampered with.
@@ -19,7 +19,7 @@ defmodule NauticNetWeb.Endpoint do
   # when deploying your static files in production.
   plug Plug.Static,
     at: "/",
-    from: :nautic_net_web,
+    from: :nautic_net,
     gzip: false,
     only: NauticNetWeb.static_paths()
 
@@ -29,7 +29,7 @@ defmodule NauticNetWeb.Endpoint do
     socket "/phoenix/live_reload/socket", Phoenix.LiveReloader.Socket
     plug Phoenix.LiveReloader
     plug Phoenix.CodeReloader
-    plug Phoenix.Ecto.CheckRepoStatus, otp_app: :nautic_net_web
+    plug Phoenix.Ecto.CheckRepoStatus, otp_app: :nautic_net
   end
 
   plug Phoenix.LiveDashboard.RequestLogger,

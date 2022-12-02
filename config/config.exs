@@ -7,13 +7,13 @@
 # General application configuration
 import Config
 
-config :nautic_net_web,
+config :nautic_net,
   namespace: NauticNet,
   ecto_repos: [NauticNet.Repo],
   generators: [binary_id: true]
 
 # Configures the endpoint
-config :nautic_net_web, NauticNetWeb.Endpoint,
+config :nautic_net, NauticNetWeb.Endpoint,
   url: [host: "localhost"],
   render_errors: [
     formats: [html: NauticNetWeb.ErrorHTML, json: NauticNetWeb.ErrorJSON],
@@ -29,7 +29,7 @@ config :nautic_net_web, NauticNetWeb.Endpoint,
 #
 # For production it's recommended to configure a different adapter
 # at the `config/runtime.exs`.
-config :nautic_net_web, NauticNet.Mailer, adapter: Swoosh.Adapters.Local
+config :nautic_net, NauticNet.Mailer, adapter: Swoosh.Adapters.Local
 
 # Configure esbuild (the version is required)
 config :esbuild,
