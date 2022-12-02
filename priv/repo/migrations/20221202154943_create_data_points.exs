@@ -8,8 +8,6 @@ defmodule NauticNet.Repo.Migrations.CreateDataPoints do
       add :type, :string, null: false
       add :boat_id, references(:boats, on_delete: :delete_all, type: :binary_id), null: false
       add :sensor_id, references(:sensors, on_delete: :delete_all, type: :binary_id), null: false
-
-      timestamps()
     end
 
     create index(:data_points, [:boat_id])

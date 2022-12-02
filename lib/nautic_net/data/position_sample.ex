@@ -7,7 +7,5 @@ defmodule NauticNet.Data.PositionSample do
     belongs_to :data_point, DataPoint
 
     field :point, Geo.PostGIS.Geometry
-
-    timestamps()
   end
 end

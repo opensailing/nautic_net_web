@@ -17,8 +17,6 @@ defmodule NauticNet.Data.DataPoint do
 
     field :timestamp, :utc_datetime_usec
     field :type, Ecto.Enum, values: Map.keys(@sample_types)
-
-    timestamps()
   end
 
   def insert_changeset(data_point, sample, params) do
