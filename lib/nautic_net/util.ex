@@ -12,8 +12,8 @@ defmodule NauticNet.Util do
   end
 
   def protobuf_timestamp_to_datetime(%Google.Protobuf.Timestamp{} = timestamp) do
-    timestamp.seconds
-    |> DateTime.from_unix!()
+    (timestamp.seconds * 1_000_000)
+    |> DateTime.from_unix!(:microsecond)
     |> DateTime.add(timestamp.nanos, :nanosecond)
   end
 end

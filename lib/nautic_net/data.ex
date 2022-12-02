@@ -18,35 +18,51 @@ defmodule NauticNet.Data do
   def insert_data_points!(%Boat{} = boat, %Protobuf.DataSet{} = data_set) do
     sensor_id_lookup = create_missing_sensors(boat, data_set)
 
-    Enum.map(data_set.data_points, fn %Protobuf.DataSet.DataPoint{} = data_point ->
-      insert_data_point!(boat, data_point, sensor_id_lookup)
+    # For insert_all, keep track of all the rows to insert
+    initial_rows = %{DataPoint => []}
+
+    data_set.data_points
+    |> Enum.reduce(initial_rows, fn data_point, rows ->
+      # Figure out the sensor DB id
+      sensor_id = lookup_sensor(sensor_id_lookup, data_point.hw_unique_number)
+
+      # Build the attrs for the DataPoint and associated sample rows
+      accumulate_data_point_row(rows, boat.id, sensor_id, data_point)
+    end)
+    |> Enum.map(fn {schema, schema_rows} ->
+      # Do bulk inserts per table – might need to chunk up items if the individual inserts get too big!
+      Repo.insert_all(schema, schema_rows)
     end)
   end
 
   # Inerts a single DataPoint with the appropriate sample type
-  defp insert_data_point!(boat, data_point, sensor_id_lookup) do
-    if sample = build_db_sample(data_point.sample) do
-      sensor_id =
-        Map.fetch!(sensor_id_lookup, encode_sensor_identifier(data_point.hw_unique_number))
-
-      params = %{
-        boat_id: boat.id,
+  defp accumulate_data_point_row(rows, boat_id, sensor_id, data_point) do
+    with {:ok, sample_schema, sample_attrs} <- protobuf_to_sample_attrs(data_point.sample) do
+      data_point_attrs = %{
+        id: Ecto.UUID.generate(),
+        boat_id: boat_id,
         sensor_id: sensor_id,
-        timestamp: Util.protobuf_timestamp_to_datetime(data_point.timestamp)
+        timestamp: Util.protobuf_timestamp_to_datetime(data_point.timestamp),
+        type: DataPoint.sample_type(sample_schema)
       }
 
-      %DataPoint{}
-      |> DataPoint.insert_changeset(sample, params)
-      |> Repo.insert!()
+      sample_attrs = Map.merge(sample_attrs, %{data_point_id: data_point_attrs.id})
+
+      rows
+      |> Map.put_new(sample_schema, [])
+      |> Map.update!(DataPoint, fn list -> [data_point_attrs | list] end)
+      |> Map.update!(sample_schema, fn list -> [sample_attrs | list] end)
+    else
+      _ -> rows
     end
   end
 
   # Converts a protobuf sample a DB sample that is ready for insertion
-  defp build_db_sample({:position, %Protobuf.PositionSample{} = sample}) do
-    %PositionSample{point: %Geo.Point{coordinates: {sample.latitude, sample.longitude}}}
+  defp protobuf_to_sample_attrs({:position, %Protobuf.PositionSample{} = sample}) do
+    {:ok, PositionSample, %{point: %Geo.Point{coordinates: {sample.latitude, sample.longitude}}}}
   end
 
-  defp build_db_sample(_unknown), do: nil
+  defp protobuf_to_sample_attrs(_unknown), do: :error
 
   ### Sensors
 
@@ -82,6 +98,10 @@ defmodule NauticNet.Data do
           {identifier, sensor.id}
       end
     end)
+  end
+
+  defp lookup_sensor(sensor_id_lookup, hw_unique_number) when is_integer(hw_unique_number) do
+    Map.fetch!(sensor_id_lookup, encode_sensor_identifier(hw_unique_number))
   end
 
   # Creates a new Sensor that we haven't yet seen before

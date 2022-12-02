@@ -26,12 +26,19 @@ defmodule NauticNet.Data.DataPoint do
     |> put_sample_assoc(sample)
   end
 
-  defp put_sample_assoc(changeset, %schema{} = sample) do
+  defp put_sample_assoc(%Ecto.Changeset{} = changeset, %schema{} = sample) do
     {type, {assoc, _schema}} =
       Enum.find(@sample_types, fn {_type, {_assoc, s}} -> s == schema end)
 
     changeset
     |> put_change(:type, type)
     |> put_assoc(assoc, sample)
+  end
+
+  def sample_type(schema) when is_atom(schema) do
+    {type, {_assoc, _schema}} =
+      Enum.find(@sample_types, fn {_type, {_assoc, s}} -> s == schema end)
+
+    type
   end
 end
