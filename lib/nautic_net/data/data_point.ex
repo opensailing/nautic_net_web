@@ -3,6 +3,7 @@ defmodule NauticNet.Data.DataPoint do
 
   alias NauticNet.Racing.Boat
   alias NauticNet.Racing.Race
+  alias NauticNet.Data.PositionSample
   alias NauticNet.Data.Sensor
 
   schema "data_points" do
@@ -10,8 +11,10 @@ defmodule NauticNet.Data.DataPoint do
     belongs_to :sensor, Sensor
     belongs_to :race, Race
 
+    has_one :position_sample, PositionSample
+
     field :timestamp, :utc_datetime_usec
-    field :type, :string
+    field :type, Ecto.Enum, values: [:position]
 
     timestamps()
   end
