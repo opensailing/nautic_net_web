@@ -22,12 +22,12 @@ defmodule NauticNet.DataIngest do
     initial_rows = %{DataPoint => []}
 
     data_set.data_points
-    |> Enum.reduce(initial_rows, fn data_point, rows ->
+    |> Enum.reduce(initial_rows, fn protobuf_data_point, rows ->
       # Figure out the sensor DB id
-      sensor_id = lookup_sensor(sensor_id_lookup, data_point.hw_unique_number)
+      sensor_id = lookup_sensor(sensor_id_lookup, protobuf_data_point.hw_unique_number)
 
       # Build the attrs for the DataPoint and associated sample rows
-      accumulate_data_point_row(rows, boat.id, sensor_id, data_point)
+      accumulate_data_point_row(rows, protobuf_data_point, boat.id, sensor_id)
     end)
     |> Enum.map(fn {schema, schema_rows} ->
       # Do bulk inserts per table – might need to chunk up items if the individual inserts get too big!
@@ -36,13 +36,14 @@ defmodule NauticNet.DataIngest do
   end
 
   # Inerts a single DataPoint with the appropriate sample type
-  defp accumulate_data_point_row(rows, boat_id, sensor_id, data_point) do
-    with {:ok, sample_schema, sample_attrs} <- protobuf_to_sample_attrs(data_point.sample) do
+  defp accumulate_data_point_row(rows, protobuf_data_point, boat_id, sensor_id) do
+    with {:ok, sample_schema, sample_attrs} <-
+           protobuf_to_sample_attrs(protobuf_data_point.sample) do
       data_point_attrs = %{
         id: Ecto.UUID.generate(),
         boat_id: boat_id,
         sensor_id: sensor_id,
-        timestamp: Util.protobuf_timestamp_to_datetime(data_point.timestamp),
+        timestamp: Util.protobuf_timestamp_to_datetime(protobuf_data_point.timestamp),
         type: DataPoint.sample_type(sample_schema)
       }
 
@@ -57,7 +58,7 @@ defmodule NauticNet.DataIngest do
     end
   end
 
-  # Converts a protobuf sample a DB sample that is ready for insertion
+  # Converts a protobuf sample a DB sample that is ready for insertion. Returns a tuple like {:ok, MySchema, attrs_map}
   defp protobuf_to_sample_attrs({:position, %Protobuf.PositionSample{} = sample}) do
     {:ok, PositionSample, %{point: %Geo.Point{coordinates: {sample.latitude, sample.longitude}}}}
   end
