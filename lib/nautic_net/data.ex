@@ -25,26 +25,28 @@ defmodule NauticNet.Data do
 
   # Inerts a single DataPoint with the appropriate sample type
   defp insert_data_point!(boat, data_point, sensor_id_lookup) do
-    sample = build_db_sample(data_point.sample)
+    if sample = build_db_sample(data_point.sample) do
+      sensor_id =
+        Map.fetch!(sensor_id_lookup, encode_sensor_identifier(data_point.hw_unique_number))
 
-    sensor_id =
-      Map.fetch!(sensor_id_lookup, encode_sensor_identifier(data_point.hw_unique_number))
+      params = %{
+        boat_id: boat.id,
+        sensor_id: sensor_id,
+        timestamp: Util.protobuf_timestamp_to_datetime(data_point.timestamp)
+      }
 
-    params = %{
-      boat_id: boat.id,
-      sensor_id: sensor_id,
-      timestamp: Util.protobuf_timestamp_to_datetime(data_point.timestamp)
-    }
-
-    %DataPoint{}
-    |> DataPoint.insert_changeset(sample, params)
-    |> Repo.insert!()
+      %DataPoint{}
+      |> DataPoint.insert_changeset(sample, params)
+      |> Repo.insert!()
+    end
   end
 
   # Converts a protobuf sample a DB sample that is ready for insertion
-  def build_db_sample({:position, %Protobuf.PositionSample{} = sample}) do
+  defp build_db_sample({:position, %Protobuf.PositionSample{} = sample}) do
     %PositionSample{point: %Geo.Point{coordinates: {sample.latitude, sample.longitude}}}
   end
+
+  defp build_db_sample(_unknown), do: nil
 
   ### Sensors
 
