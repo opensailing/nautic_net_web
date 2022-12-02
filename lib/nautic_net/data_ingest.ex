@@ -1,6 +1,6 @@
-defmodule NauticNet.Data do
+defmodule NauticNet.DataIngest do
   @moduledoc """
-  Sensor data CRUD.
+  Takes in sensor protobuf data and persists it to the database.
   """
   import Ecto.Query
 

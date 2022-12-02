@@ -1,7 +1,7 @@
 defmodule NauticNetWeb.API.DataSetController do
   use NauticNetWeb, :controller
 
-  alias NauticNet.Data
+  alias NauticNet.DataIngest
   alias NauticNet.Protobuf.DataSet
   alias NauticNet.Racing
 
@@ -20,7 +20,7 @@ defmodule NauticNetWeb.API.DataSetController do
         :error -> raise "oh no"
       end
 
-    Data.insert_data_points!(boat, data_set)
+    DataIngest.insert_data_points!(boat, data_set)
 
     conn
     |> put_status(:created)
