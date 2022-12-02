@@ -50,7 +50,8 @@ defmodule NauticNet.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:plug_cowboy, "~> 2.5"},
-      {:nautic_net_protobuf, github: "DockYard/nautic_net_protobuf"}
+      {:nautic_net_protobuf, github: "DockYard/nautic_net_protobuf"},
+      {:geo_postgis, "~> 3.4"}
     ]
   end
 

@@ -1,11 +1,10 @@
-# Script for populating the database. You can run it as:
-#
-#     mix run priv/repo/seeds.exs
-#
-# Inside the script, you can read and write to any of your
-# repositories directly:
-#
-#     NauticNet.Repo.insert!(%NauticNet.SomeSchema{})
-#
-# We recommend using the bang functions (`insert!`, `update!`
-# and so on) as they will fail if something goes wrong.
+alias NauticNet.Racing
+alias NauticNet.Racing.Race
+
+{:ok, _race} =
+  Racing.upsert_race(%Race{}, %{
+    name: "The DockYard Cup",
+    starts_at: DateTime.utc_now(),
+    ends_at: DateTime.utc_now() |> DateTime.add(3600),
+    center: %Geo.Point{coordinates: {42.2823685, -70.9173206}}
+  })
