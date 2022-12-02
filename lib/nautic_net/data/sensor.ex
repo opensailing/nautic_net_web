@@ -1,10 +1,12 @@
 defmodule NauticNet.Data.Sensor do
   use NauticNet.Schema
 
+  alias NauticNet.Data.DataPoint
   alias NauticNet.Racing.Boat
 
   schema "sensors" do
     belongs_to :boat, Boat
+    has_many :data_points, DataPoint
 
     field :hardware_identifier, :string
     field :name, :string
@@ -13,16 +15,9 @@ defmodule NauticNet.Data.Sensor do
   end
 
   @doc false
-  def insert_changeset(sensor, attrs) do
+  def insert_changeset(sensor, params) do
     sensor
-    |> cast(attrs, [:boat_id, :name, :hardware_identifier])
-    |> validate_required([:boat_id, :name, :hardware_identifier])
-  end
-
-  @doc false
-  def update_changeset(sensor, attrs) do
-    sensor
-    |> cast(attrs, [:name])
-    |> validate_required([:name])
+    |> cast(params, [:name, :hardware_identifier])
+    |> validate_required([:name, :hardware_identifier])
   end
 end

@@ -32,6 +32,7 @@ defmodule NauticNet.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      # Phoenix
       {:phoenix, "~> 1.7.0-rc.0", override: true},
       {:phoenix_ecto, "~> 4.4"},
       {:ecto_sql, "~> 3.6"},
@@ -50,8 +51,17 @@ defmodule NauticNet.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:plug_cowboy, "~> 2.5"},
+
+      # Postgres
+      {:geo_postgis, "~> 3.4"},
+
+      # Testing
+      {:mix_test_watch, "~> 1.0", only: [:dev, :test], runtime: false},
+
+      # NauticNet
       {:nautic_net_protobuf, github: "DockYard/nautic_net_protobuf"},
-      {:geo_postgis, "~> 3.4"}
+
+
     ]
   end
 

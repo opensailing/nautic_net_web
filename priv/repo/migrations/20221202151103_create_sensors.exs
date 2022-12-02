@@ -13,5 +13,6 @@ defmodule NauticNet.Repo.Migrations.CreateSensors do
 
     create index(:sensors, [:boat_id])
     create index(:sensors, [:hardware_identifier])
+    create index(:sensors, [:boat_id, :hardware_identifier], unique: true)
   end
 end

@@ -6,7 +6,7 @@ defmodule NauticNet.Data.PositionSample do
   schema "position_samples" do
     belongs_to :data_point, DataPoint
 
-    field :coordinate, Geo.PostGIS.Geometry
+    field :point, Geo.PostGIS.Geometry
 
     timestamps()
   end

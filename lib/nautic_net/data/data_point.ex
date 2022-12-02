@@ -2,20 +2,38 @@ defmodule NauticNet.Data.DataPoint do
   use NauticNet.Schema
 
   alias NauticNet.Racing.Boat
-  alias NauticNet.Racing.Race
   alias NauticNet.Data.PositionSample
   alias NauticNet.Data.Sensor
+
+  @sample_types %{
+    position: {:position_sample, PositionSample}
+  }
 
   schema "data_points" do
     belongs_to :boat, Boat
     belongs_to :sensor, Sensor
-    belongs_to :race, Race
 
     has_one :position_sample, PositionSample
 
     field :timestamp, :utc_datetime_usec
-    field :type, Ecto.Enum, values: [:position]
+    field :type, Ecto.Enum, values: Map.keys(@sample_types)
 
     timestamps()
+  end
+
+  def insert_changeset(data_point, sample, params) do
+    data_point
+    |> cast(params, [:boat_id, :sensor_id, :timestamp])
+    |> validate_required([:boat_id, :sensor_id, :timestamp])
+    |> put_sample_assoc(sample)
+  end
+
+  defp put_sample_assoc(changeset, %schema{} = sample) do
+    {type, {assoc, _schema}} =
+      Enum.find(@sample_types, fn {_type, {_assoc, s}} -> s == schema end)
+
+    changeset
+    |> put_change(:type, type)
+    |> put_assoc(assoc, sample)
   end
 end

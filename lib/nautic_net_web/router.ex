@@ -20,6 +20,12 @@ defmodule NauticNetWeb.Router do
     get "/", PageController, :home
   end
 
+  scope "/api", NauticNetWeb.API do
+    pipe_through :api
+
+    post "/data_sets", DataSetController, :create
+  end
+
   # Other scopes may use custom stacks.
   # scope "/api", NauticNetWeb do
   #   pipe_through :api

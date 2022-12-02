@@ -1,12 +1,15 @@
 defmodule NauticNet.Racing.Boat do
   use NauticNet.Schema
 
+  alias NauticNet.Data.DataPoint
   alias NauticNet.Data.Sensor
 
   schema "boats" do
     has_many :sensors, Sensor
+    has_many :data_points, DataPoint
 
     field :name, :string
+    field :identifier, :string
 
     timestamps()
   end
@@ -14,7 +17,8 @@ defmodule NauticNet.Racing.Boat do
   @doc false
   def changeset(boat, attrs) do
     boat
-    |> cast(attrs, [:name])
-    |> validate_required([:name])
+    |> cast(attrs, [:name, :identifier])
+    |> validate_required([:name, :identifier])
+    |> unique_constraint(:identifier)
   end
 end
