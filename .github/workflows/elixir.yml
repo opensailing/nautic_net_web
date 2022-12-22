@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ "main" ]
 
+env:
+  MIX_ENV: test
+  ImageOS: ubuntu20
+
 permissions:
   contents: read
 
