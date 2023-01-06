@@ -51,7 +51,7 @@ defmodule NauticNetWeb.Api.DataSetControllerTest do
       assert [data_point] = sensor.data_points
       assert data_point.timestamp == now
       assert data_point.type == :position
-      assert data_point.field == :position
+      assert data_point.measurement == :position
       assert data_point.position_sample.point.coordinates == {40.0, -70.0}
     end
   end

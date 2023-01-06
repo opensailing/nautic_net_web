@@ -5,8 +5,8 @@ defmodule NauticNet.DataIngest do
   import Ecto.Query
 
   alias NauticNet.Data.DataPoint
+  alias NauticNet.Data.SampleSchema
   alias NauticNet.Data.Sensor
-  alias NauticNet.DataIngest.ProtobufDecode
   alias NauticNet.Protobuf
   alias NauticNet.Racing.Boat
   alias NauticNet.Repo
@@ -37,17 +37,17 @@ defmodule NauticNet.DataIngest do
 
   # Inerts a single DataPoint with the appropriate sample type
   defp accumulate_data_point_row(rows, protobuf_data_point, boat_id, sensor_id) do
-    {field, protobuf_sample} = protobuf_data_point.sample
+    {protobuf_field, protobuf_sample} = protobuf_data_point.sample
 
     with {:ok, sample_schema, sample_attrs} <-
-           ProtobufDecode.to_sample_attrs(protobuf_sample) do
+           SampleSchema.attrs_from_protobuf_sample(protobuf_sample) do
       data_point_attrs = %{
         boat_id: boat_id,
-        field: field,
+        measurement: protobuf_field,
         id: Ecto.UUID.generate(),
         sensor_id: sensor_id,
         timestamp: Util.protobuf_timestamp_to_datetime(protobuf_data_point.timestamp),
-        type: DataPoint.sample_type(sample_schema)
+        type: sample_schema.sample_type()
       }
 
       sample_attrs = Map.merge(sample_attrs, %{data_point_id: data_point_attrs.id})

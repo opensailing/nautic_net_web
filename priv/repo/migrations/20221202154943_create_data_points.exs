@@ -6,7 +6,7 @@ defmodule NauticNet.Repo.Migrations.CreateDataPoints do
       add :id, :binary_id, primary_key: true
       add :timestamp, :utc_datetime_usec, null: false
       add :type, :string, null: false
-      add :field, :string, null: false
+      add :measurement, :string, null: false
       add :boat_id, references(:boats, on_delete: :delete_all, type: :binary_id), null: false
       add :sensor_id, references(:sensors, on_delete: :delete_all, type: :binary_id), null: false
     end
@@ -15,7 +15,7 @@ defmodule NauticNet.Repo.Migrations.CreateDataPoints do
     create index(:data_points, [:sensor_id])
     create index(:data_points, [:timestamp])
     create index(:data_points, [:type])
-    create index(:data_points, [:field])
-    create index(:data_points, [:type, :field])
+    create index(:data_points, [:measurement])
+    create index(:data_points, [:type, :measurement])
   end
 end
