@@ -2,11 +2,13 @@ defmodule NauticNet.Data.DataPoint do
   use NauticNet.Schema
 
   alias NauticNet.Racing.Boat
+  alias NauticNet.Data.HeadingSample
   alias NauticNet.Data.PositionSample
   alias NauticNet.Data.WindVelocitySample
   alias NauticNet.Data.Sensor
 
   @sample_types %{
+    heading: {:heading_sample, HeadingSample},
     position: {:position_sample, PositionSample},
     wind_velocity: {:wind_velocity_sample, WindVelocitySample}
   }
@@ -15,6 +17,7 @@ defmodule NauticNet.Data.DataPoint do
     belongs_to :boat, Boat
     belongs_to :sensor, Sensor
 
+    has_one :heading_sample, HeadingSample
     has_one :position_sample, PositionSample
     has_one :wind_velocity_sample, WindVelocitySample
 
