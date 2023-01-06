@@ -3,9 +3,14 @@ defmodule NauticNet.Data.SampleSchema do
   Behaviour and helper functions for Ecto schemas that map 1-to-1 with Protobuf sample types.
   """
 
+  #
+  # This is the list of all known modules that implement this behaviour. NauticNet.Data.DataPoint uses
+  # this to enumerate metadata for each sample type to build out assocs, validations, etc. at compile-time.
+  #
   @sample_schemas [
     NauticNet.Data.HeadingSample,
     NauticNet.Data.PositionSample,
+    NauticNet.Data.SpeedSample,
     NauticNet.Data.VelocitySample,
     NauticNet.Data.WaterDepthSample,
     NauticNet.Data.WindVelocitySample
@@ -31,11 +36,16 @@ defmodule NauticNet.Data.SampleSchema do
   """
   @callback attrs_from_protobuf_sample(struct) :: {:ok, map} | :error
 
+  @doc """
+  Returns a list of all known sample schema modules.
+  """
   def sample_schemas, do: @sample_schemas
-  def sample_type(schema), do: schema.sample_type()
-  def sample_assoc(schema), do: schema.sample_assoc()
-  def sample_measurements(schema), do: schema.sample_measurements()
 
+  @doc """
+  Converts a protobuf sample struct into an attrs map.
+
+  Returns {:ok, schema, attrs} on success, or :error if the sample struct is unhandled.
+  """
   def attrs_from_protobuf_sample(protobuf_sample) do
     Enum.find_value(@sample_schemas, :error, fn schema ->
       case schema.attrs_from_protobuf_sample(protobuf_sample) do

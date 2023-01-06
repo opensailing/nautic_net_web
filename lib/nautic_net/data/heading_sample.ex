@@ -2,9 +2,9 @@ defmodule NauticNet.Data.HeadingSample do
   use NauticNet.Schema
   @behaviour NauticNet.Data.SampleSchema
 
+  alias NauticNet.Protobuf
   alias NauticNet.Data.DataPoint
   alias NauticNet.Data.SampleSchema
-  alias NauticNet.Protobuf
 
   @references [
     :none,
