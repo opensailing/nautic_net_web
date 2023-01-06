@@ -4,7 +4,7 @@ defmodule NauticNet.Repo.Migrations.CreateWindVelocitySamples do
   def change do
     create table(:wind_velocity_samples, primary_key: false) do
       add :id, :binary_id, primary_key: true
-      add :reference, :string, null: false
+      add :wind_reference, :string, null: false
       add :speed_kt, :float, null: false
       add :angle_deg, :float, null: false
 
@@ -13,6 +13,6 @@ defmodule NauticNet.Repo.Migrations.CreateWindVelocitySamples do
     end
 
     create index(:wind_velocity_samples, [:data_point_id])
-    create index(:wind_velocity_samples, [:reference])
+    create index(:wind_velocity_samples, [:wind_reference])
   end
 end

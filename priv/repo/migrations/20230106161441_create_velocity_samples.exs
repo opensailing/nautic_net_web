@@ -4,7 +4,7 @@ defmodule NauticNet.Repo.Migrations.CreateVelocitySamples do
   def change do
     create table(:velocity_samples, primary_key: false) do
       add :id, :binary_id, primary_key: true
-      add :reference, :string, null: false
+      add :direction_reference, :string, null: false
       add :speed_kt, :float, null: false
       add :angle_deg, :float, null: false
 
@@ -13,6 +13,6 @@ defmodule NauticNet.Repo.Migrations.CreateVelocitySamples do
     end
 
     create index(:velocity_samples, [:data_point_id])
-    create index(:velocity_samples, [:reference])
+    create index(:velocity_samples, [:direction_reference])
   end
 end

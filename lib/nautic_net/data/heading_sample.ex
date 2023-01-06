@@ -6,7 +6,7 @@ defmodule NauticNet.Data.HeadingSample do
   alias NauticNet.Data.DataPoint
   alias NauticNet.Data.SampleSchema
 
-  @references [
+  @direction_references [
     :none,
     true,
     :magnetic
@@ -16,7 +16,7 @@ defmodule NauticNet.Data.HeadingSample do
     belongs_to :data_point, DataPoint
 
     field :heading_deg, :float
-    field :reference, Ecto.Enum, values: @references
+    field :direction_reference, Ecto.Enum, values: @direction_references
   end
 
   @impl SampleSchema
@@ -33,7 +33,7 @@ defmodule NauticNet.Data.HeadingSample do
     {:ok,
      %{
        heading_deg: sample.heading_deg,
-       reference: NauticNet.Data.SampleSchema.decode_protobuf_enum(sample.reference)
+       direction_reference: NauticNet.Data.SampleSchema.decode_protobuf_enum(sample.reference)
      }}
   end
 

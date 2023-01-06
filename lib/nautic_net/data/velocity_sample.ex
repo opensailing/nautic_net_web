@@ -6,7 +6,7 @@ defmodule NauticNet.Data.VelocitySample do
   alias NauticNet.Data.SampleSchema
   alias NauticNet.Protobuf
 
-  @references [
+  @direction_references [
     :none,
     true,
     :magnetic
@@ -17,7 +17,7 @@ defmodule NauticNet.Data.VelocitySample do
 
     field :speed_kt, :float
     field :angle_deg, :float
-    field :reference, Ecto.Enum, values: @references
+    field :direction_reference, Ecto.Enum, values: @direction_references
   end
 
   @impl SampleSchema
@@ -35,7 +35,7 @@ defmodule NauticNet.Data.VelocitySample do
      %{
        speed_kt: sample.speed_kt,
        angle_deg: sample.angle_deg,
-       reference: SampleSchema.decode_protobuf_enum(sample.reference)
+       direction_reference: SampleSchema.decode_protobuf_enum(sample.reference)
      }}
   end
 
