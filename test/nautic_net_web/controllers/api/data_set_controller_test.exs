@@ -41,16 +41,16 @@ defmodule NauticNetWeb.Api.DataSetControllerTest do
       # THEN
       assert text_response(conn, 201) == ""
 
-      boat = Racing.get_or_create_boat_by_identifier("BOAT", sensors: [:data_points])
+      boat = Racing.get_or_create_boat_by_identifier("BOAT", sensors: [:samples])
 
       assert [sensor] = boat.sensors
       assert sensor.hardware_identifier == "7B"
 
-      assert [data_point] = sensor.data_points
-      assert data_point.time == now
-      assert data_point.type == :position
-      assert data_point.measurement == :position
-      assert data_point.position.coordinates == {40.0, -70.0}
+      assert [sample] = sensor.samples
+      assert sample.time == now
+      assert sample.type == :position
+      assert sample.measurement == :position
+      assert sample.position.coordinates == {40.0, -70.0}
     end
   end
 end

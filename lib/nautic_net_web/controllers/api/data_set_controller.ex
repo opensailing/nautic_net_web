@@ -20,7 +20,7 @@ defmodule NauticNetWeb.API.DataSetController do
         :error -> raise "oh no"
       end
 
-    DataIngest.insert_data_points!(boat, data_set)
+    DataIngest.insert_samples!(boat, data_set)
 
     conn
     |> put_status(:created)

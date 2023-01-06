@@ -1,12 +1,12 @@
 defmodule NauticNet.Data.Sensor do
   use NauticNet.Schema
 
-  alias NauticNet.Data.DataPoint
+  alias NauticNet.Data.Sample
   alias NauticNet.Racing.Boat
 
   schema "sensors" do
     belongs_to :boat, Boat
-    has_many :data_points, DataPoint
+    has_many :samples, Sample
 
     field :hardware_identifier, :string
     field :name, :string

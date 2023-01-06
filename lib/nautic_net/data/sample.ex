@@ -1,4 +1,4 @@
-defmodule NauticNet.Data.DataPoint do
+defmodule NauticNet.Data.Sample do
   use NauticNet.Schema
 
   alias NauticNet.Data.Sensor
@@ -39,7 +39,7 @@ defmodule NauticNet.Data.DataPoint do
   ]
 
   @primary_key false
-  schema "data_points" do
+  schema "samples" do
     belongs_to :boat, Boat
     belongs_to :sensor, Sensor
 

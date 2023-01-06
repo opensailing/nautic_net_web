@@ -40,7 +40,7 @@ defmodule NauticNet.Repo.Migrations.CreateDataPoints do
       :ground
     ])
 
-    create table(:data_points, primary_key: false) do
+    create table(:samples, primary_key: false) do
       add :time, :timestamptz, null: false
       add :type, :sample_type, null: false
       add :measurement, :measurement_type, null: false
@@ -68,16 +68,16 @@ defmodule NauticNet.Repo.Migrations.CreateDataPoints do
       add :speed_kt, :float
     end
 
-    create index(:data_points, [:boat_id])
-    create index(:data_points, [:sensor_id])
-    create index(:data_points, [:time])
-    create index(:data_points, [:type])
-    create index(:data_points, [:measurement])
-    create index(:data_points, [:type, :measurement])
-    create index(:data_points, [:position], using: :gist)
+    create index(:samples, [:boat_id])
+    create index(:samples, [:sensor_id])
+    create index(:samples, [:time])
+    create index(:samples, [:type])
+    create index(:samples, [:measurement])
+    create index(:samples, [:type, :measurement])
+    create index(:samples, [:position], using: :gist)
 
     execute(
-      "SELECT create_hypertable('data_points', 'time', chunk_time_interval => INTERVAL '1 day')",
+      "SELECT create_hypertable('samples', 'time', chunk_time_interval => INTERVAL '1 day')",
       "-- do nothing during down()"
     )
   end

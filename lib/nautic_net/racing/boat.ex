@@ -1,12 +1,12 @@
 defmodule NauticNet.Racing.Boat do
   use NauticNet.Schema
 
-  alias NauticNet.Data.DataPoint
+  alias NauticNet.Data.Sample
   alias NauticNet.Data.Sensor
 
   schema "boats" do
     has_many :sensors, Sensor
-    has_many :data_points, DataPoint
+    has_many :samples, Sample
 
     field :name, :string
     field :identifier, :string

@@ -4,7 +4,7 @@ defmodule NauticNet.DataIngest do
   """
   import Ecto.Query
 
-  alias NauticNet.Data.DataPoint
+  alias NauticNet.Data.Sample
   alias NauticNet.Data.Sensor
   alias NauticNet.Protobuf
   alias NauticNet.Racing.Boat
@@ -14,28 +14,28 @@ defmodule NauticNet.DataIngest do
   ### DataPoints
 
   # Inserts all the DataPoints from a DataSet protobuf
-  def insert_data_points!(%Boat{} = boat, %Protobuf.DataSet{} = data_set) do
+  def insert_samples!(%Boat{} = boat, %Protobuf.DataSet{} = data_set) do
     # Create missing sensor rows and store a LUT in memory for quick access
     sensor_id_lookup = create_missing_sensors(boat, data_set)
 
-    data_point_rows =
+    sample_rows =
       Enum.flat_map(data_set.data_points, fn protobuf_data_point ->
         # Figure out the sensor DB id
         sensor_id = lookup_sensor(sensor_id_lookup, protobuf_data_point.hw_unique_number)
 
         # Build the attrs for the DataPoint and associated sample rows
-        data_point_attr_rows(protobuf_data_point, boat.id, sensor_id)
+        sample_attr_rows(protobuf_data_point, boat.id, sensor_id)
       end)
 
     # Do bulk insert – might need to chunk up items if the individual inserts get too big!
-    Repo.insert_all(DataPoint, data_point_rows)
+    Repo.insert_all(Sample, sample_rows)
   end
 
   # Inerts a single DataPoint with the appropriate sample type
-  defp data_point_attr_rows(protobuf_data_point, boat_id, sensor_id) do
+  defp sample_attr_rows(protobuf_data_point, boat_id, sensor_id) do
     {protobuf_field, protobuf_sample} = protobuf_data_point.sample
 
-    with {:ok, sample_attrs} <- DataPoint.attrs_from_protobuf_sample(protobuf_sample) do
+    with {:ok, sample_attrs} <- Sample.attrs_from_protobuf_sample(protobuf_sample) do
       [
         Map.merge(sample_attrs, %{
           boat_id: boat_id,
