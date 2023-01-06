@@ -7,6 +7,7 @@ defmodule NauticNet.Data.SampleSchema do
     NauticNet.Data.HeadingSample,
     NauticNet.Data.PositionSample,
     NauticNet.Data.VelocitySample,
+    NauticNet.Data.WaterDepthSample,
     NauticNet.Data.WindVelocitySample
   ]
 
