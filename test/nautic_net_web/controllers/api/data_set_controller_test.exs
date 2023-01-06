@@ -3,6 +3,7 @@ defmodule NauticNetWeb.Api.DataSetControllerTest do
 
   alias NauticNet.Protobuf
   alias NauticNet.Racing
+  alias NauticNet.Repo
   alias NauticNet.Util
 
   describe "create/2" do
@@ -42,6 +43,7 @@ defmodule NauticNetWeb.Api.DataSetControllerTest do
       assert text_response(conn, 201) == ""
 
       boat = Racing.get_or_create_boat_by_identifier("BOAT", sensors: [:data_points])
+      boat = Repo.preload(boat, sensors: [data_points: [:position_sample]])
 
       assert [sensor] = boat.sensors
       assert sensor.hardware_identifier == "7B"
@@ -49,6 +51,8 @@ defmodule NauticNetWeb.Api.DataSetControllerTest do
       assert [data_point] = sensor.data_points
       assert data_point.timestamp == now
       assert data_point.type == :position
+      assert data_point.field == :position
+      assert data_point.position_sample.point.coordinates == {40.0, -70.0}
     end
   end
 end

@@ -5,14 +5,14 @@ defmodule NauticNet.DataIngest.ProtobufDecode do
   ### Data Mapping
 
   # Converts a protobuf sample a DB sample that is ready for insertion. Returns a tuple like {:ok, MySchema, attrs_map}
-  def to_sample_attrs({:position, %Protobuf.PositionSample{} = sample}) do
+  def to_sample_attrs(%Protobuf.PositionSample{} = sample) do
     {:ok, Data.PositionSample,
      %{
        point: %Geo.Point{coordinates: {sample.latitude, sample.longitude}}
      }}
   end
 
-  def to_sample_attrs({:wind_velocity, %Protobuf.WindVelocitySample{} = sample}) do
+  def to_sample_attrs(%Protobuf.WindVelocitySample{} = sample) do
     {:ok, Data.WindVelocitySample,
      %{
        speed_kt: sample.speed_kt,
@@ -21,10 +21,19 @@ defmodule NauticNet.DataIngest.ProtobufDecode do
      }}
   end
 
-  def to_sample_attrs({:heading, %Protobuf.HeadingSample{} = sample}) do
+  def to_sample_attrs(%Protobuf.HeadingSample{} = sample) do
     {:ok, Data.HeadingSample,
      %{
        heading_deg: sample.heading_deg,
+       reference: decode_protobuf_enum(sample.reference)
+     }}
+  end
+
+  def to_sample_attrs(%Protobuf.VelocitySample{} = sample) do
+    {:ok, Data.VelocityOverGroundSample,
+     %{
+       speed_kt: sample.speed_kt,
+       angle_deg: sample.angle_deg,
        reference: decode_protobuf_enum(sample.reference)
      }}
   end
