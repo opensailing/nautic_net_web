@@ -5,8 +5,8 @@ defmodule NauticNet.DataIngest do
   import Ecto.Query
 
   alias NauticNet.Data.DataPoint
-  alias NauticNet.Data.PositionSample
   alias NauticNet.Data.Sensor
+  alias NauticNet.DataIngest.ProtobufDecode
   alias NauticNet.Protobuf
   alias NauticNet.Racing.Boat
   alias NauticNet.Repo
@@ -38,7 +38,7 @@ defmodule NauticNet.DataIngest do
   # Inerts a single DataPoint with the appropriate sample type
   defp accumulate_data_point_row(rows, protobuf_data_point, boat_id, sensor_id) do
     with {:ok, sample_schema, sample_attrs} <-
-           protobuf_to_sample_attrs(protobuf_data_point.sample) do
+           ProtobufDecode.to_sample_attrs(protobuf_data_point.sample) do
       data_point_attrs = %{
         id: Ecto.UUID.generate(),
         boat_id: boat_id,
@@ -57,13 +57,6 @@ defmodule NauticNet.DataIngest do
       _ -> rows
     end
   end
-
-  # Converts a protobuf sample a DB sample that is ready for insertion. Returns a tuple like {:ok, MySchema, attrs_map}
-  defp protobuf_to_sample_attrs({:position, %Protobuf.PositionSample{} = sample}) do
-    {:ok, PositionSample, %{point: %Geo.Point{coordinates: {sample.latitude, sample.longitude}}}}
-  end
-
-  defp protobuf_to_sample_attrs(_unknown), do: :error
 
   ### Sensors
 

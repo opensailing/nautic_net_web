@@ -3,10 +3,12 @@ defmodule NauticNet.Data.DataPoint do
 
   alias NauticNet.Racing.Boat
   alias NauticNet.Data.PositionSample
+  alias NauticNet.Data.WindVelocitySample
   alias NauticNet.Data.Sensor
 
   @sample_types %{
-    position: {:position_sample, PositionSample}
+    position: {:position_sample, PositionSample},
+    wind_velocity: {:wind_velocity_sample, WindVelocitySample}
   }
 
   schema "data_points" do
@@ -14,6 +16,7 @@ defmodule NauticNet.Data.DataPoint do
     belongs_to :sensor, Sensor
 
     has_one :position_sample, PositionSample
+    has_one :wind_velocity_sample, WindVelocitySample
 
     field :timestamp, :utc_datetime_usec
     field :type, Ecto.Enum, values: Map.keys(@sample_types)

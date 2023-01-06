@@ -4,8 +4,10 @@ defmodule NauticNet.Repo.Migrations.CreatePositionSamples do
   def change do
     create table(:position_samples, primary_key: false) do
       add :id, :binary_id, primary_key: true
-      add :point, :geometry
-      add :data_point_id, references(:data_points, on_delete: :delete_all, type: :binary_id)
+      add :point, :geometry, null: false
+
+      add :data_point_id, references(:data_points, on_delete: :delete_all, type: :binary_id),
+        null: false
     end
 
     create index(:position_samples, [:data_point_id])
