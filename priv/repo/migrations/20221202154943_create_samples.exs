@@ -49,14 +49,11 @@ defmodule NauticNet.Repo.Migrations.CreateDataPoints do
 
       ### Sample fields
 
-      # velocity, wind velocity
-      add :angle_deg, :float
+      # velocity, wind velocity, heading
+      add :angle_rad, :float
 
       # water depth
       add :depth_m, :float
-
-      # heading
-      add :heading_deg, :float
 
       # position
       add :position, :geometry
@@ -65,7 +62,7 @@ defmodule NauticNet.Repo.Migrations.CreateDataPoints do
       add :reference, :reference
 
       # speed, velocity, wind velocity
-      add :speed_kt, :float
+      add :speed_m_s, :float
     end
 
     create index(:samples, [:boat_id])

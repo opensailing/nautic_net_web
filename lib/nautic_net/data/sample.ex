@@ -57,27 +57,24 @@ defmodule NauticNet.Data.Sample do
 
     ### Sample fields, set sparsely depending on :type
 
-    # velocity, wind_velocity
-    field :angle_deg, :float
+    # velocity, wind_velocity, heading
+    field :angle_rad, :float
 
     # water_depth
     field :depth_m, :float
-
-    # heading
-    field :heading_deg, :float
 
     # position
     field :position, Geo.PostGIS.Geometry
 
     # speed, velocity, wind_velocity
-    field :speed_kt, :float
+    field :speed_m_s, :float
   end
 
   def attrs_from_protobuf_sample(%Protobuf.HeadingSample{} = sample) do
     {:ok,
      %{
        type: :heading,
-       heading_deg: sample.heading_deg,
+       angle_rad: sample.heading_rad,
        reference: decode_protobuf_enum(sample.reference)
      }}
   end
@@ -88,29 +85,29 @@ defmodule NauticNet.Data.Sample do
   end
 
   def attrs_from_protobuf_sample(%Protobuf.SpeedSample{} = sample) do
-    {:ok, %{type: :speed, speed_kt: sample.speed_kt}}
+    {:ok, %{type: :speed, speed_m_s: sample.speed_m_s}}
   end
 
   def attrs_from_protobuf_sample(%Protobuf.VelocitySample{} = sample) do
     {:ok,
      %{
        type: :velocity,
-       speed_kt: sample.speed_kt,
-       angle_deg: sample.angle_deg,
+       speed_m_s: sample.speed_m_s,
+       angle_rad: sample.angle_rad,
        reference: decode_protobuf_enum(sample.reference)
      }}
   end
 
   def attrs_from_protobuf_sample(%Protobuf.WaterDepthSample{} = sample) do
-    {:ok, %{type: :water_depth, depth_m: sample.depth}}
+    {:ok, %{type: :water_depth, depth_m: sample.depth_m}}
   end
 
   def attrs_from_protobuf_sample(%Protobuf.WindVelocitySample{} = sample) do
     {:ok,
      %{
        type: :wind_velocity,
-       speed_kt: sample.speed_kt,
-       angle_deg: sample.angle_deg,
+       speed_m_s: sample.speed_m_s,
+       angle_rad: sample.angle_rad,
        reference: decode_protobuf_enum(sample.reference)
      }}
   end

@@ -60,6 +60,8 @@ defmodule NauticNet.MixProject do
 
       # NauticNet
       {:nautic_net_protobuf, github: "DockYard/nautic_net_protobuf"}
+      # Local dev:
+      # {:nautic_net_protobuf, path: "../nautic_net_protobuf"}
     ]
   end
 
