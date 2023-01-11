@@ -75,8 +75,8 @@ defmodule NauticNet.Data.Sample do
      %{
        type: :heading,
        measurement: field,
-       angle_rad: sample.heading_rad,
-       reference: decode_protobuf_enum(sample.reference)
+       angle_rad: sample.angle_rad,
+       reference: decode_protobuf_enum(sample.angle_reference)
      }}
   end
 
@@ -89,15 +89,13 @@ defmodule NauticNet.Data.Sample do
      }}
   end
 
-  def attrs_from_protobuf_sample(
-        {:speed_water_referenced = field, %Protobuf.SpeedSample{} = sample}
-      ) do
+  def attrs_from_protobuf_sample({field, %Protobuf.SpeedSample{} = sample}) do
     {:ok,
      %{
        type: :speed,
        measurement: field,
        speed_m_s: sample.speed_m_s,
-       reference: :water
+       reference: decode_protobuf_enum(sample.speed_reference)
      }}
   end
 
@@ -108,7 +106,7 @@ defmodule NauticNet.Data.Sample do
        measurement: field,
        speed_m_s: sample.speed_m_s,
        angle_rad: sample.angle_rad,
-       reference: decode_protobuf_enum(sample.reference)
+       reference: decode_protobuf_enum(sample.angle_reference)
      }}
   end
 
@@ -128,22 +126,26 @@ defmodule NauticNet.Data.Sample do
        measurement: field,
        speed_m_s: sample.speed_m_s,
        angle_rad: sample.angle_rad,
-       reference: decode_protobuf_enum(sample.reference)
+       reference: decode_protobuf_enum(sample.wind_reference)
      }}
   end
 
   def attrs_from_protobuf_sample(_), do: :error
 
   defp decode_protobuf_enum(:WIND_REFERENCE_NONE), do: :none
-  defp decode_protobuf_enum(:WIND_REFERENCE_TRUE), do: :true_north
-  defp decode_protobuf_enum(:WIND_REFERENCE_MAGNETIC), do: :magnetic_north
+  defp decode_protobuf_enum(:WIND_REFERENCE_TRUE_NORTH), do: :true_north
+  defp decode_protobuf_enum(:WIND_REFERENCE_MAGNETIC_NORTH), do: :magnetic_north
   defp decode_protobuf_enum(:WIND_REFERENCE_APPARENT), do: :apparent
-  defp decode_protobuf_enum(:WIND_REFERENCE_TRUE_BOAT), do: :true_north_boat
-  defp decode_protobuf_enum(:WIND_REFERENCE_TRUE_WATER), do: :true_north_water
+  defp decode_protobuf_enum(:WIND_REFERENCE_BOAT_TRUE_NORTH), do: :true_north_boat
+  defp decode_protobuf_enum(:WIND_REFERENCE_WATER_TRUE_NORTH), do: :true_north_water
 
-  defp decode_protobuf_enum(:DIRECTION_REFERENCE_NONE), do: :none
-  defp decode_protobuf_enum(:DIRECTION_REFERENCE_TRUE), do: :true_north
-  defp decode_protobuf_enum(:DIRECTION_REFERENCE_MAGNETIC), do: :magnetic_north
+  defp decode_protobuf_enum(:ANGLE_REFERENCE_NONE), do: :none
+  defp decode_protobuf_enum(:ANGLE_REFERENCE_TRUE_NORTH), do: :true_north
+  defp decode_protobuf_enum(:ANGLE_REFERENCE_MAGNETIC_NORTH), do: :magnetic_north
+
+  defp decode_protobuf_enum(:SPEED_REFERENCE_NONE), do: :none
+  defp decode_protobuf_enum(:SPEED_REFERENCE_GROUND), do: :ground
+  defp decode_protobuf_enum(:SPEED_REFERENCE_WATER), do: :water
 
   defp decode_protobuf_enum(unknown),
     do: raise(ArgumentError, "Unexpected protobuf enum value #{inspect(unknown)}")
