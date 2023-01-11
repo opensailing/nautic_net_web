@@ -70,42 +70,62 @@ defmodule NauticNet.Data.Sample do
     field :speed_m_s, :float
   end
 
-  def attrs_from_protobuf_sample(%Protobuf.HeadingSample{} = sample) do
+  def attrs_from_protobuf_sample({field, %Protobuf.HeadingSample{} = sample}) do
     {:ok,
      %{
        type: :heading,
+       measurement: field,
        angle_rad: sample.heading_rad,
        reference: decode_protobuf_enum(sample.reference)
      }}
   end
 
-  def attrs_from_protobuf_sample(%Protobuf.PositionSample{} = sample) do
+  def attrs_from_protobuf_sample({field, %Protobuf.PositionSample{} = sample}) do
     {:ok,
-     %{type: :position, position: %Geo.Point{coordinates: {sample.latitude, sample.longitude}}}}
+     %{
+       type: :position,
+       measurement: field,
+       position: %Geo.Point{coordinates: {sample.latitude, sample.longitude}}
+     }}
   end
 
-  def attrs_from_protobuf_sample(%Protobuf.SpeedSample{} = sample) do
-    {:ok, %{type: :speed, speed_m_s: sample.speed_m_s}}
+  def attrs_from_protobuf_sample(
+        {:speed_water_referenced = field, %Protobuf.SpeedSample{} = sample}
+      ) do
+    {:ok,
+     %{
+       type: :speed,
+       measurement: field,
+       speed_m_s: sample.speed_m_s,
+       reference: :water
+     }}
   end
 
-  def attrs_from_protobuf_sample(%Protobuf.VelocitySample{} = sample) do
+  def attrs_from_protobuf_sample({field, %Protobuf.VelocitySample{} = sample}) do
     {:ok,
      %{
        type: :velocity,
+       measurement: field,
        speed_m_s: sample.speed_m_s,
        angle_rad: sample.angle_rad,
        reference: decode_protobuf_enum(sample.reference)
      }}
   end
 
-  def attrs_from_protobuf_sample(%Protobuf.WaterDepthSample{} = sample) do
-    {:ok, %{type: :water_depth, depth_m: sample.depth_m}}
+  def attrs_from_protobuf_sample({field, %Protobuf.WaterDepthSample{} = sample}) do
+    {:ok,
+     %{
+       type: :water_depth,
+       measurement: field,
+       depth_m: sample.depth_m
+     }}
   end
 
-  def attrs_from_protobuf_sample(%Protobuf.WindVelocitySample{} = sample) do
+  def attrs_from_protobuf_sample({field, %Protobuf.WindVelocitySample{} = sample}) do
     {:ok,
      %{
        type: :wind_velocity,
+       measurement: field,
        speed_m_s: sample.speed_m_s,
        angle_rad: sample.angle_rad,
        reference: decode_protobuf_enum(sample.reference)

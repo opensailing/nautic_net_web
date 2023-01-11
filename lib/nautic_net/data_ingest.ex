@@ -33,13 +33,10 @@ defmodule NauticNet.DataIngest do
 
   # Inerts a single DataPoint with the appropriate sample type
   defp sample_attr_rows(protobuf_data_point, boat_id, sensor_id) do
-    {protobuf_field, protobuf_sample} = protobuf_data_point.sample
-
-    with {:ok, sample_attrs} <- Sample.attrs_from_protobuf_sample(protobuf_sample) do
+    with {:ok, sample_attrs} <- Sample.attrs_from_protobuf_sample(protobuf_data_point.sample) do
       [
         Map.merge(sample_attrs, %{
           boat_id: boat_id,
-          measurement: protobuf_field,
           sensor_id: sensor_id,
           time: Util.protobuf_timestamp_to_datetime(protobuf_data_point.timestamp)
         })
