@@ -1,4 +1,4 @@
-defmodule NauticNet.DataIngest do
+defmodule NauticNet.Ingest do
   @moduledoc """
   Takes in sensor protobuf data and persists it to the database.
   """
@@ -7,14 +7,22 @@ defmodule NauticNet.DataIngest do
   alias NauticNet.Data.Sample
   alias NauticNet.Data.Sensor
   alias NauticNet.Protobuf
+  alias NauticNet.Protobuf.DataSet
+  alias NauticNet.Racing
   alias NauticNet.Racing.Boat
   alias NauticNet.Repo
   alias NauticNet.Util
 
   ### DataPoints
 
-  # Inserts all the DataPoints from a DataSet protobuf
-  def insert_samples!(%Boat{} = boat, %Protobuf.DataSet{} = data_set) do
+  # Inserts all the DataPoints from an encoded DataSet protobuf
+  def insert_samples!(encoded_data_set) when is_binary(encoded_data_set) do
+    # This will raise if there is an error
+    data_set = DataSet.decode(encoded_data_set)
+
+    # Find the boat
+    boat = Racing.get_or_create_boat_by_identifier(data_set.boat_identifier)
+
     # Create missing sensor rows and store a LUT in memory for quick access
     sensor_id_lookup = create_missing_sensors(boat, data_set)
 
