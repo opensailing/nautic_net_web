@@ -17,9 +17,9 @@ defmodule NauticNet.Application do
       # Start Finch
       {Finch, name: NauticNet.Finch},
       # Start the Endpoint (http/https)
-      NauticNetWeb.Endpoint
-      # Start a worker by calling: NauticNet.Worker.start_link(arg)
-      # {NauticNet.Worker, arg}
+      NauticNetWeb.Endpoint,
+      # Start the protobuf UDP listener
+      {NauticNet.Ingest.UDPServer, port: Application.get_env(:nautic_net, :udp_port, 20002)}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
