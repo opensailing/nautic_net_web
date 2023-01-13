@@ -16,8 +16,12 @@ defmodule NauticNetWeb.Router do
 
   scope "/", NauticNetWeb do
     pipe_through :browser
+  end
 
-    get "/", PageController, :home
+  scope "/", BoatVisualizerWeb do
+    pipe_through :browser
+
+    live "/", MapLive
   end
 
   scope "/api", NauticNetWeb.API do

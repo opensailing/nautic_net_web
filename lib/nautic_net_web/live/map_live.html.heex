@@ -1,0 +1,37 @@
+<div class="container">
+  <div id="map" phx-hook="Leaflet" phx-update="ignore"></div>
+  <br />
+  <div id="range" phx-hook="RangeSlider" phx-update="ignore" data-max={@max_position}></div>
+  <br />
+
+  <form
+    phx-change={Phoenix.LiveView.JS.dispatch("handleSetPosition")}
+    phx-throttle="500"
+    phx-click={Phoenix.LiveView.JS.dispatch("handleSetPosition")}
+    phx-throttle="500"
+  >
+    <label for="position"><%= print_coordinates(@current_coordinates) %></label>
+    <input
+      style="width:100%"
+      type="range"
+      id="position"
+      name="position"
+      value={@current_position}
+      min={@current_min_position}
+      max={@current_max_position}
+    />
+  </form>
+
+  <.button phx-click="toggle_track"><%= if @show_track, do: "Hide", else: "Show" %></.button>
+  <.button :if={@show_track} phx-click="clear">Clear</.button>
+  <.button phx-click={
+    Phoenix.LiveView.JS.dispatch("animateTime", detail: %{play: true}, to: "#map")
+  }>
+    Start
+  </.button>
+  <.button phx-click={
+    Phoenix.LiveView.JS.dispatch("animateTime", detail: %{play: false}, to: "#map")
+  }>
+    Stop
+  </.button>
+</div>

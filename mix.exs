@@ -59,9 +59,15 @@ defmodule NauticNet.MixProject do
       {:mix_test_watch, "~> 1.0", only: [:dev, :test], runtime: false},
 
       # NauticNet
-      {:nautic_net_protobuf, github: "DockYard/nautic_net_protobuf"}
+      {:nautic_net_protobuf, github: "DockYard/nautic_net_protobuf"},
       # Local dev:
-      # {:nautic_net_protobuf, path: "../nautic_net_protobuf"}
+      # {:nautic_net_protobuf, path: "../nautic_net_protobuf"},
+
+      # Visualizer
+      {:netcdf, "~> 0.1"},
+      {:exla, "~> 0.4"},
+      {:ex_cldr_calendars, "~> 1.21"},
+      {:protobuf, "~> 0.10.0"}
     ]
   end
 

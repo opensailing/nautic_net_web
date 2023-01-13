@@ -1,0 +1,13 @@
+syntax = "proto3";
+package geodata;
+
+message Current {
+    float lat = 1;
+    float lon = 2;
+    float speed = 3;
+    float direction = 4;
+}
+
+message GeoData {
+    repeated Current currents = 1;
+}

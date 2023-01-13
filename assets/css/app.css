@@ -2,4 +2,10 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
+@import 'nouislider/dist/nouislider.css';
 /* This file is for your main application CSS */
+
+#map {
+    height: 700px;
+    width: 1000px;
+}
