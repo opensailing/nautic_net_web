@@ -14,7 +14,7 @@ defmodule NauticNet.Application do
       NauticNet.Repo,
       # Start the PubSub system
       {Phoenix.PubSub, name: NauticNet.PubSub},
-      {BoatVisualizer.NetCDF,
+      {NauticNet.NetCDF,
        %{
          dataset_filename: Path.join(:code.priv_dir(:nautic_net), "dataset_20221221.nc"),
          start_date: ~D[2022-12-21],

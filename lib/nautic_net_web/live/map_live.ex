@@ -1,9 +1,9 @@
-defmodule BoatVisualizerWeb.MapLive do
+defmodule NauticNetWeb.MapLive do
   use NauticNetWeb, :live_view
 
   alias Phoenix.PubSub
-  alias BoatVisualizer.Animation
-  alias BoatVisualizer.Coordinates
+  alias NauticNet.Animation
+  alias NauticNet.Coordinates
 
   require Logger
 
@@ -91,9 +91,9 @@ defmodule BoatVisualizerWeb.MapLive do
     dt = NaiveDateTime.diff(t1, t0)
 
     milliseconds_diff = NaiveDateTime.diff(time, t0, :millisecond)
-    time = BoatVisualizer.NetCDF.epoch() + milliseconds_diff / (24 * :timer.hours(1))
+    time = NauticNet.NetCDF.epoch() + milliseconds_diff / (24 * :timer.hours(1))
 
-    index = BoatVisualizer.NetCDF.get_geodata_time_index(time)
+    index = NauticNet.NetCDF.get_geodata_time_index(time)
 
     dt = Cldr.Calendar.datetime_from_modified_julian_date(time)
 
@@ -109,7 +109,7 @@ defmodule BoatVisualizerWeb.MapLive do
 
         data =
           index
-          |> BoatVisualizer.NetCDF.get_geodata(min_lat, max_lat, min_lon, max_lon, zoom_level)
+          |> NauticNet.NetCDF.get_geodata(min_lat, max_lat, min_lon, max_lon, zoom_level)
           |> Base.encode64()
 
         {index, now, data}

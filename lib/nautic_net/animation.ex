@@ -1,4 +1,4 @@
-defmodule BoatVisualizer.Animation do
+defmodule NauticNet.Animation do
   alias Phoenix.PubSub
 
   @initial_coordinates {42.27, -70.997}

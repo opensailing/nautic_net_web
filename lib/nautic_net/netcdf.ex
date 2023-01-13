@@ -1,4 +1,4 @@
-defmodule BoatVisualizer.NetCDF do
+defmodule NauticNet.NetCDF do
   @moduledoc """
   Loads a dataset in memory.
   """

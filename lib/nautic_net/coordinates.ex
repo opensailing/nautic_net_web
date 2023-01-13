@@ -1,4 +1,4 @@
-defmodule BoatVisualizer.Coordinates do
+defmodule NauticNet.Coordinates do
   @default_path "priv/external/"
 
   def get_coordinates(filename) do

@@ -18,7 +18,7 @@ defmodule NauticNetWeb.Router do
     pipe_through :browser
   end
 
-  scope "/", BoatVisualizerWeb do
+  scope "/", NauticNetWeb do
     pipe_through :browser
 
     live "/", MapLive
