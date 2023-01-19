@@ -9,7 +9,11 @@ defmodule NauticNet.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
-      deps: deps()
+      deps: deps(),
+
+      # Protocol consolidation causes the CodeReloader to be extremely slow, so let's disable
+      # this in the dev environment
+      consolidate_protocols: Mix.env() != :dev
     ]
   end
 
