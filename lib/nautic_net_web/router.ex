@@ -47,7 +47,12 @@ defmodule NauticNetWeb.Router do
     scope "/dev" do
       pipe_through :browser
 
-      live_dashboard "/dashboard", metrics: NauticNetWeb.Telemetry
+      live_dashboard "/dashboard",
+        metrics: NauticNetWeb.Telemetry,
+        additional_pages: [
+          flame_on: FlameOn.DashboardPage
+        ]
+
       forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
   end
