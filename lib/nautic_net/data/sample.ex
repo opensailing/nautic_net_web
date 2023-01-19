@@ -75,7 +75,7 @@ defmodule NauticNet.Data.Sample do
      %{
        type: :heading,
        measurement: field,
-       angle_rad: sample.angle_rad,
+       angle_rad: Protobuf.Convert.decode_unit(sample.angle_mrad, :mrad, :rad),
        reference: decode_protobuf_enum(sample.angle_reference)
      }}
   end
@@ -95,7 +95,7 @@ defmodule NauticNet.Data.Sample do
      %{
        type: :speed,
        measurement: field,
-       speed_m_s: sample.speed_m_s,
+       speed_m_s: Protobuf.Convert.decode_unit(sample.speed_cm_s, :cm_s, :m_s),
        reference: decode_protobuf_enum(sample.speed_reference)
      }}
   end
@@ -105,8 +105,8 @@ defmodule NauticNet.Data.Sample do
      %{
        type: :velocity,
        measurement: field,
-       speed_m_s: sample.speed_m_s,
-       angle_rad: sample.angle_rad,
+       speed_m_s: Protobuf.Convert.decode_unit(sample.speed_cm_s, :cm_s, :m_s),
+       angle_rad: Protobuf.Convert.decode_unit(sample.angle_mrad, :mrad, :rad),
        reference: decode_protobuf_enum(sample.angle_reference)
      }}
   end
@@ -116,7 +116,7 @@ defmodule NauticNet.Data.Sample do
      %{
        type: :water_depth,
        measurement: field,
-       depth_m: sample.depth_m
+       depth_m: Protobuf.Convert.decode_unit(sample.depth_cm, :cm, :m)
      }}
   end
 
@@ -125,8 +125,8 @@ defmodule NauticNet.Data.Sample do
      %{
        type: :wind_velocity,
        measurement: field,
-       speed_m_s: sample.speed_m_s,
-       angle_rad: sample.angle_rad,
+       speed_m_s: Protobuf.Convert.decode_unit(sample.speed_cm_s, :cm_s, :m_s),
+       angle_rad: Protobuf.Convert.decode_unit(sample.angle_mrad, :mrad, :rad),
        reference: decode_protobuf_enum(sample.wind_reference)
      }}
   end
