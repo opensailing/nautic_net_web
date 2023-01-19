@@ -85,7 +85,8 @@ defmodule NauticNet.Data.Sample do
      %{
        type: :position,
        measurement: field,
-       position: %Geo.Point{coordinates: {sample.latitude, sample.longitude}}
+       # NOTE!!! The ordering of this coordinate tuple is {x, y}, and hence {longitude, latitude}
+       position: %Geo.Point{coordinates: {sample.longitude, sample.latitude}}
      }}
   end
 
