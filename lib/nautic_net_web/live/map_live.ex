@@ -51,7 +51,7 @@ defmodule NauticNetWeb.MapLive do
 
   def handle_event(
         "change_bounds",
-        %{"bounds" => bounding_box, "position" => _position, "zoom_level" => zoom_level},
+        %{"bounds" => bounding_box, "zoom_level" => zoom_level},
         socket
       ) do
     handle_event(
@@ -88,14 +88,12 @@ defmodule NauticNetWeb.MapLive do
     {time, _new_lat, _new_lon} = new_coordinates
     {t0, _, _} = Enum.at(assigns.coordinates, 0)
     {t1, _, _} = Enum.at(assigns.coordinates, -1)
-    _dt = NaiveDateTime.diff(t1, t0)
 
     milliseconds_diff = NaiveDateTime.diff(time, t0, :millisecond)
     time = NauticNet.NetCDF.epoch() + milliseconds_diff / (24 * :timer.hours(1))
 
     index = NauticNet.NetCDF.get_geodata_time_index(time)
 
-    _dt = Cldr.Calendar.datetime_from_modified_julian_date(time)
 
     {last_current_event_index, last_current_event_sent_at, current_data} =
       if (index != assigns.last_current_event_index or viewport_change) and
