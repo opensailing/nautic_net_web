@@ -19,7 +19,7 @@ defmodule NauticNet.Ingest.UDPServer do
 
     {:ok, socket} = :gen_udp.open(port, mode: :binary, active: true)
 
-    Logger.info("Opened UDP port #{port}")
+    Logger.debug("Opened UDP port #{port}")
 
     {:ok,
      %{
