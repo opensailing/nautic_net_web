@@ -5,7 +5,7 @@ alias NauticNet.Racing
     name: "The DockYard Cup",
     starts_at: DateTime.utc_now(),
     ends_at: DateTime.utc_now() |> DateTime.add(3600),
-    # Note this coordinate is ordered {longitude, latitude}
+    # Note this coordinate is ordered in PostGIS as {longitude, latitude}
     center: %Geo.Point{coordinates: {-70.9173206, 42.2823685}}
   })
 
