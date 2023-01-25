@@ -9,7 +9,11 @@ defmodule NauticNet.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
-      deps: deps()
+      deps: deps(),
+
+      # Protocol consolidation causes the CodeReloader to be extremely slow, so let's disable
+      # this in the dev environment
+      consolidate_protocols: Mix.env() != :dev
     ]
   end
 
@@ -51,6 +55,7 @@ defmodule NauticNet.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:plug_cowboy, "~> 2.5"},
+      {:flame_on, github: "DockYard/flame_on", branch: "mb-liveview-0-18"},
 
       # Postgres
       {:geo_postgis, "~> 3.4"},

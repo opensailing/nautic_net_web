@@ -11,7 +11,7 @@ config :nautic_net,
   namespace: NauticNet,
   ecto_repos: [NauticNet.Repo],
   generators: [binary_id: true],
-  udp_port: 20002
+  udp_port: 4001
 
 # Configures the endpoint
 config :nautic_net, NauticNetWeb.Endpoint,
