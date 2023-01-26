@@ -4,7 +4,7 @@ defmodule NauticNet.Playback do
   """
 
   defmodule DataSource do
-    defstruct [:id, :name, :measurement, :reference]
+    defstruct [:id, :name, :measurement, :reference, :selected_sensor, sensors: []]
   end
 
   import Ecto.Query
@@ -50,61 +50,10 @@ defmodule NauticNet.Playback do
   end
 
   @doc """
-  Returns a map to enumerate which Sensors are available to satisfy a particular DataSource.
-
-  Returns a map with DataSource id as a key and a list of Sensor structs as values. Example:
-
-      %{
-        "position" => [%Sensor{}, %Sensor{}, ...],
-        "heading" => [%Sensor{}, ...],
-        ...
-      }
-  """
-  def sensors_by_data_source_id(%Date{} = date, timezone, boat) do
-    # [%{measurement: :foo, reference: :bar, sensor_id: "bat"}, ...]
-    known_sensor_measurements =
-      Sample
-      |> where([s], fragment("(? at time zone ?)::date", s.time, ^timezone) == ^date)
-      |> where([s], s.boat_id == ^boat.id)
-      |> select([s], %{measurement: s.measurement, reference: s.reference, sensor_id: s.sensor_id})
-      |> distinct(true)
-      |> Repo.all()
-      |> IO.inspect()
-
-    # ["sensor_1", "sensor_2", ...]
-    known_sensor_ids =
-      known_sensor_measurements
-      |> Enum.map(& &1.sensor_id)
-      |> Enum.uniq()
-
-    # %{"sensor_1" => %Sensor{}, ...}
-    sensor_lookup =
-      Sensor
-      |> where([s], s.id in ^known_sensor_ids)
-      |> Repo.all()
-      |> Map.new(&{&1.id, &1})
-
-    # %{
-    #   "position" => [%Sensor{}, %Sensor{}, ...],
-    #   "heading" => [%Sensor{}, ...],
-    #   ...
-    # }
-    for data_source <- list_data_sources(), into: %{} do
-      sensors =
-        for ksm <- known_sensor_measurements,
-            ksm.measurement == data_source.measurement and
-              ksm.reference == data_source.reference,
-            do: Map.fetch!(sensor_lookup, ksm.sensor_id)
-
-      {data_source.id, sensors}
-    end
-  end
-
-  @doc """
   Returns an ordered list of DataSource structs that represent the different type of
   measurements that can be displayed directly from the sample data.
   """
-  def list_data_sources do
+  def all_data_sources do
     [
       %DataSource{
         id: "position",
@@ -156,16 +105,59 @@ defmodule NauticNet.Playback do
     ]
   end
 
-  defp get_data_source(id) do
-    Enum.find(list_data_sources(), &(&1.id == id)) ||
-      raise "could not find DataSource with id #{inspect(id)}"
+  @doc """
+  Returns a list of DataSource structs with the available sensors populated.
+
+      [%DataSource{sensors: [...], selected_sensor: %Sensor{} | nil, ...}, ...]
+
+  """
+  def list_data_sources(boat, %Date{} = date, timezone) do
+    # [%{measurement: :foo, reference: :bar, sensor_id: "bat"}, ...]
+    known_sensor_measurements =
+      Sample
+      |> where([s], fragment("(? at time zone ?)::date", s.time, ^timezone) == ^date)
+      |> where([s], s.boat_id == ^boat.id)
+      |> select([s], %{measurement: s.measurement, reference: s.reference, sensor_id: s.sensor_id})
+      |> distinct(true)
+      |> Repo.all()
+
+    # ["sensor_1", "sensor_2", ...]
+    known_sensor_ids =
+      known_sensor_measurements
+      |> Enum.map(& &1.sensor_id)
+      |> Enum.uniq()
+
+    # %{"sensor_1" => %Sensor{}, ...}
+    sensor_lookup =
+      Sensor
+      |> where([s], s.id in ^known_sensor_ids)
+      |> Repo.all()
+      |> Map.new(&{&1.id, &1})
+
+    # [%DataSource{sensors: [...], selected_sensor: %Sensor{} | nil, ...}, ...]
+    for data_source <- all_data_sources() do
+      sensors =
+        for ksm <- known_sensor_measurements,
+            ksm.measurement == data_source.measurement and
+              ksm.reference == data_source.reference,
+            do: Map.fetch!(sensor_lookup, ksm.sensor_id)
+
+      selected_sensor = List.first(sensors)
+
+      %{data_source | sensors: sensors, selected_sensor: selected_sensor}
+    end
   end
 
-  defp for_data_source(sample_query, data_source_id) when is_binary(data_source_id) do
-    for_data_source(sample_query, get_data_source(data_source_id))
-  end
+  # defp get_data_source(id) do
+  #   Enum.find(all_data_sources(), &(&1.id == id)) ||
+  #     raise "could not find DataSource with id #{inspect(id)}"
+  # end
 
-  defp for_data_source(sample_query, %DataSource{} = hud) do
-    where(sample_query, [s], s.measurement == ^hud.measurement and s.reference == ^hud.reference)
-  end
+  # defp for_data_source(sample_query, data_source_id) when is_binary(data_source_id) do
+  #   for_data_source(sample_query, get_data_source(data_source_id))
+  # end
+
+  # defp for_data_source(sample_query, %DataSource{} = hud) do
+  #   where(sample_query, [s], s.measurement == ^hud.measurement and s.reference == ^hud.reference)
+  # end
 end
