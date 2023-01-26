@@ -55,6 +55,7 @@ defmodule NauticNetWeb do
         layout: {NauticNetWeb.Layouts, :app}
 
       unquote(html_helpers())
+      unquote(live_inspect())
     end
   end
 
@@ -63,6 +64,7 @@ defmodule NauticNetWeb do
       use Phoenix.LiveComponent
 
       unquote(html_helpers())
+      unquote(live_inspect())
     end
   end
 
@@ -100,6 +102,14 @@ defmodule NauticNetWeb do
         endpoint: NauticNetWeb.Endpoint,
         router: NauticNetWeb.Router,
         statics: NauticNetWeb.static_paths()
+    end
+  end
+
+  defp live_inspect do
+    if Mix.env() == :dev do
+      quote do
+        import LiveInspect, only: [live_inspect: 1]
+      end
     end
   end
 
