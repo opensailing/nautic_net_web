@@ -10,12 +10,6 @@ defmodule NauticNetWeb.MapLive do
 
   def mount(_params, _session, socket) do
     if connected?(socket), do: PubSub.subscribe(NauticNet.PubSub, "leaflet")
-    [initial_coordinates | _] = coordinates = Coordinates.get_coordinates("trip-01.csv")
-    map_center = Coordinates.get_center(coordinates)
-
-    Animation.set_track_coordinates(coordinates)
-    Animation.set_map_view(map_center)
-    Animation.set_marker_coordinates(initial_coordinates)
 
     {now, us} = NaiveDateTime.utc_now() |> NaiveDateTime.to_gregorian_seconds()
     now = now + us / 1_000_000
@@ -28,16 +22,7 @@ defmodule NauticNetWeb.MapLive do
     socket =
       socket
       |> assign(:timezone, "America/New_York")
-      |> assign(:current_coordinates, initial_coordinates)
-      |> assign(:coordinates, coordinates)
-      |> assign(:ranged_coordinates, coordinates)
-      |> assign(:map_center, map_center)
-      |> assign(:current_position, 0)
       |> assign(:animate_time, false)
-      |> assign(:min_position, 0)
-      |> assign(:max_position, Enum.count(coordinates) - 1)
-      |> assign(:current_min_position, 0)
-      |> assign(:current_max_position, Enum.count(coordinates) - 1)
       |> assign(:show_track, true)
       |> assign(:last_current_event_sent_at, now)
       |> assign(:bounding_box, %{
@@ -50,8 +35,27 @@ defmodule NauticNetWeb.MapLive do
       |> assign(:is_live, false)
       |> assign_dates()
       |> assign(:data_sources_modal_visible?, false)
+      |> assign_coordinates(Coordinates.get_coordinates("trip-01.csv"))
 
     {:ok, socket}
+  end
+
+  defp assign_coordinates(socket, [initial_coordinates | _] = coordinates) do
+    map_center = Coordinates.get_center(coordinates)
+
+    Animation.set_track_coordinates(coordinates)
+    Animation.set_map_view(map_center)
+    Animation.set_marker_coordinates(initial_coordinates)
+
+    socket
+    |> assign(:current_coordinates, initial_coordinates)
+    |> assign(:coordinates, coordinates)
+    |> assign(:map_center, map_center)
+    |> assign(:min_position, 0)
+    |> assign(:max_position, Enum.count(coordinates) - 1)
+    |> assign(:current_min_position, 0)
+    |> assign(:current_max_position, Enum.count(coordinates) - 1)
+    |> assign(:current_position, 0)
   end
 
   def handle_event(
@@ -148,12 +152,10 @@ defmodule NauticNetWeb.MapLive do
     {min_value, _} = Integer.parse(min)
     {max_value, _} = Integer.parse(max)
 
-    ranged_coordinates = Enum.slice(socket.assigns.coordinates, min_value..max_value)
     Animation.set_marker_position(min_value)
 
     {:noreply,
      socket
-     |> assign(:ranged_coordinates, ranged_coordinates)
      |> assign(:current_coordinates, Enum.at(socket.assigns.coordinates, min_value))
      |> assign(:current_position, min_value)
      |> assign(:current_min_position, min_value)
