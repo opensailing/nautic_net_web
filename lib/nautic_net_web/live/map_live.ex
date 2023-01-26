@@ -35,9 +35,22 @@ defmodule NauticNetWeb.MapLive do
       |> assign(:is_live, false)
       |> assign_dates()
       |> assign(:data_sources_modal_visible?, false)
-      |> assign_coordinates(Coordinates.get_coordinates("trip-01.csv"))
+      # |> assign_coordinates(Coordinates.get_coordinates("trip-01.csv"))
+      |> assign_selected_boat_coordinates()
 
     {:ok, socket}
+  end
+
+  defp assign_selected_boat_coordinates(socket) do
+    coordinates =
+      Playback.list_coordinates(
+        socket.assigns.selected_boat,
+        socket.assigns.selected_date,
+        socket.assigns.timezone,
+        socket.assigns.data_sources
+      )
+
+    assign_coordinates(socket, coordinates)
   end
 
   defp assign_coordinates(socket, [initial_coordinates | _] = coordinates) do
@@ -244,6 +257,7 @@ defmodule NauticNetWeb.MapLive do
         socket.assigns.timezone
       )
     )
+    |> assign_selected_boat_coordinates()
   end
 
   # Update each DataSource's :selected_sensor based on form params
