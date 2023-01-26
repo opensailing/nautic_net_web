@@ -47,8 +47,9 @@ defmodule NauticNetWeb.MapLive do
         "max_lon" => max_lon
       })
       |> assign(:last_current_event_index, nil)
-      |> assign_dates()
       |> assign(:is_live, false)
+      |> assign_dates()
+      |> assign(:data_sources_modal_visible?, false)
 
     {:ok, socket}
   end
@@ -159,10 +160,16 @@ defmodule NauticNetWeb.MapLive do
      |> assign(:current_max_position, max_value)}
   end
 
-  def handle_event("date_changed", %{"date" => date_param}, socket) do
+  def handle_event("select_date", %{"date" => date_param}, socket) do
     date = Date.from_iso8601!(date_param)
 
-    {:noreply, assign_date(socket, date)}
+    {:noreply, select_date(socket, date)}
+  end
+
+  def handle_event("select_boat", %{"boat_id" => boat_id}, socket) do
+    boat = Enum.find(socket.assigns.boats, &(&1.id == boat_id)) || raise "invalid boat_id"
+
+    {:noreply, select_boat(socket, boat)}
   end
 
   def handle_event("is_live_changed", %{"is_live" => is_live_param}, socket) do
@@ -176,6 +183,18 @@ defmodule NauticNetWeb.MapLive do
       |> push_event("set_enabled", %{id: "range", enabled: not is_live})
       # TODO: More things
     }
+  end
+
+  def handle_event("select_data_sources", params, socket) do
+    {:noreply, select_sensors(socket, params)}
+  end
+
+  def handle_event("show_data_sources_modal", _, socket) do
+    {:noreply, assign(socket, :data_sources_modal_visible?, true)}
+  end
+
+  def handle_event("data_sources_modal_closed", _, socket) do
+    {:noreply, assign(socket, :data_sources_modal_visible?, false)}
   end
 
   def handle_info({"track_coordinates", coordinates}, socket) do
@@ -199,18 +218,65 @@ defmodule NauticNetWeb.MapLive do
 
     socket
     |> assign(:dates, dates)
-    |> assign_date(first_date)
+    |> select_date(first_date)
+  end
+
+  # Set the date, boats, and data sources
+  defp select_date(socket, date) do
+    [first_boat | _] = boats = Playback.list_active_boats(date, socket.assigns.timezone)
+
+    socket
+    |> assign(:selected_date, date)
+    |> assign(:boats, boats)
+    |> select_boat(first_boat)
+  end
+
+  defp select_boat(socket, boat) do
+    socket
+    |> assign(:selected_boat, boat)
+    |> assign(
+      :data_sources,
+      Playback.list_data_sources(
+        boat,
+        socket.assigns.selected_date,
+        socket.assigns.timezone
+      )
+    )
+  end
+
+  # Update each DataSource's :selected_sensor based on form params
+  defp select_sensors(socket, params) do
+    data_sources =
+      for data_source <- socket.assigns.data_sources do
+        next_sensor = Enum.find(data_source.sensors, &(&1.id == params[data_source.id]))
+        %{data_source | selected_sensor: next_sensor}
+      end
+
+    assign(socket, :data_sources, data_sources)
+  end
+
+  defp sensor_count(data_sources) do
+    data_sources
+    |> Enum.flat_map(fn data_source ->
+      Enum.map(data_source.sensors, & &1.id)
+    end)
+    |> Enum.uniq()
+    |> Enum.count()
+  end
+
+  # <select> option helpers
+
+  defp boat_options(boats) do
+    Enum.map(boats, &{&1.name, &1.id})
   end
 
   defp date_options(dates) do
     Enum.map(dates, &Date.to_iso8601/1)
   end
 
-  defp assign_date(socket, date) do
-    boats = Playback.list_active_boats(date, socket.assigns.timezone)
+  defp sensor_options([]), do: [{"Not Available", ""}]
 
-    socket
-    |> assign(:selected_date, date)
-    |> assign(:boats, boats)
+  defp sensor_options(sensors) do
+    [{"Off", ""}] ++ Enum.map(sensors, &{&1.name, &1.id})
   end
 end

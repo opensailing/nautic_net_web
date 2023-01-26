@@ -2,7 +2,7 @@
 
 <div class="flex items-center justify-between my-4">
   <div class="flex items-center gap-4">
-    <form phx-change="date_changed" class="w-32">
+    <form phx-change="select_date" class="w-32">
       <.input
         type="select"
         id="date"
@@ -20,11 +20,11 @@
   </div>
 
   <div>
-    <%= length(@boats) %> boat(s)
+    <%= length(@boats) %> <%= if length(@boats) == 1, do: "boat", else: "boats" %>
   </div>
 </div>
 
-<div class="my-8">
+<div class="my-6 px-4">
   <div id="range" phx-hook="RangeSlider" phx-update="ignore" data-max={@max_position} />
 </div>
 
@@ -32,6 +32,7 @@
   phx-change={Phoenix.LiveView.JS.dispatch("handleSetPosition")}
   phx-click={Phoenix.LiveView.JS.dispatch("handleSetPosition")}
   phx-throttle="500"
+  class="my-4"
 >
   <label for="position"><%= print_coordinates(@current_coordinates) %></label>
   <input
@@ -46,15 +47,66 @@
   />
 </form>
 
-<.button phx-click="toggle_track"><%= if @show_track, do: "Hide", else: "Show" %></.button>
-<.button :if={@show_track} phx-click="clear">Clear</.button>
-<.button phx-click={
-  Phoenix.LiveView.JS.dispatch("animateTime", detail: %{play: true}, to: "#map")
-}>
-  Start
-</.button>
-<.button phx-click={
-  Phoenix.LiveView.JS.dispatch("animateTime", detail: %{play: false}, to: "#map")
-}>
-  Stop
-</.button>
+<div class="my-4">
+  <.button phx-click="toggle_track"><%= if @show_track, do: "Hide", else: "Show" %></.button>
+  <.button :if={@show_track} phx-click="clear">Clear</.button>
+  <.button phx-click={
+    Phoenix.LiveView.JS.dispatch("animateTime", detail: %{play: true}, to: "#map")
+  }>
+    Start
+  </.button>
+  <.button phx-click={
+    Phoenix.LiveView.JS.dispatch("animateTime", detail: %{play: false}, to: "#map")
+  }>
+    Stop
+  </.button>
+</div>
+
+<div class="my-4 border rounded-lg px-4 py-2 grid grid-cols-3 gap-4">
+  <div>
+    <h2 class="text-xl font-semibold mb-2">Inspector</h2>
+
+    <form phx-change="select_boat" class="mb-4">
+      <.input
+        type="select"
+        id="boat_id"
+        name="boat_id"
+        value={@selected_boat.id}
+        options={boat_options(@boats)}
+        errors={[]}
+      />
+    </form>
+
+    <.button phx-click="show_data_sources_modal">
+      <%= sensor_count(@data_sources) %> sensors
+    </.button>
+
+    <%= if @data_sources_modal_visible? do %>
+      <.modal id="data_sources_modal" show={true} on_cancel={JS.push("data_sources_modal_closed")}>
+        <:title>Select Sensors</:title>
+        <form phx-change="select_data_sources">
+          <%= for data_source <- @data_sources do %>
+            <fieldset class="my-3">
+              <label for={data_source.id} class="font-semibold mb-1">
+                <%= data_source.name %>
+              </label>
+              <.input
+                type="select"
+                id={"data_source_" <> data_source.id}
+                name={data_source.id}
+                value={if data_source.selected_sensor, do: data_source.selected_sensor.id}
+                options={sensor_options(data_source.sensors)}
+                errors={[]}
+                disabled={data_source.sensors == []}
+              />
+            </fieldset>
+          <% end %>
+        </form>
+      </.modal>
+    <% end %>
+  </div>
+
+  <div>column 2</div>
+
+  <div>column 3</div>
+</div>
