@@ -18,4 +18,12 @@ export function rangeSlider(hook) {
   divElement.noUiSlider.on('update', function ([min, max], _handle) {
     hook.pushEvent('update_range', { min: min, max: max });
   });
+
+  hook.handleEvent('set_enabled', ({ enabled }) => {
+    if (enabled) {
+      divElement.removeAttribute('disabled');
+    } else {
+      divElement.setAttribute('disabled', true);
+    }
+  });
 }

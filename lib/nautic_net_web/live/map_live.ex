@@ -4,6 +4,7 @@ defmodule NauticNetWeb.MapLive do
   alias Phoenix.PubSub
   alias NauticNet.Animation
   alias NauticNet.Coordinates
+  alias NauticNet.Playback
 
   require Logger
 
@@ -26,6 +27,7 @@ defmodule NauticNetWeb.MapLive do
 
     socket =
       socket
+      |> assign(:timezone, "America/New_York")
       |> assign(:current_coordinates, initial_coordinates)
       |> assign(:coordinates, coordinates)
       |> assign(:ranged_coordinates, coordinates)
@@ -45,6 +47,8 @@ defmodule NauticNetWeb.MapLive do
         "max_lon" => max_lon
       })
       |> assign(:last_current_event_index, nil)
+      |> assign_dates()
+      |> assign(:is_live, false)
 
     {:ok, socket}
   end
@@ -155,6 +159,25 @@ defmodule NauticNetWeb.MapLive do
      |> assign(:current_max_position, max_value)}
   end
 
+  def handle_event("date_changed", %{"date" => date_param}, socket) do
+    date = Date.from_iso8601!(date_param)
+
+    {:noreply, assign_date(socket, date)}
+  end
+
+  def handle_event("is_live_changed", %{"is_live" => is_live_param}, socket) do
+    is_live = is_live_param == "true"
+
+    {
+      :noreply,
+      socket
+      |> assign(:is_live, is_live)
+      # RangeSlider state must be updated via JS hook because it has phx-update="ignore"
+      |> push_event("set_enabled", %{id: "range", enabled: not is_live})
+      # TODO: More things
+    }
+  end
+
   def handle_info({"track_coordinates", coordinates}, socket) do
     {:noreply, push_event(socket, "track_coordinates", %{coordinates: coordinates})}
   end
@@ -170,4 +193,24 @@ defmodule NauticNetWeb.MapLive do
   defp print_coordinates({datetime, latitude, longitude}),
     do:
       "#{NaiveDateTime.to_string(datetime)} [#{Float.round(latitude, 4)}, #{Float.round(longitude, 4)}]"
+
+  defp assign_dates(socket) do
+    [first_date | _] = dates = Playback.list_all_dates(socket.assigns.timezone)
+
+    socket
+    |> assign(:dates, dates)
+    |> assign_date(first_date)
+  end
+
+  defp date_options(dates) do
+    Enum.map(dates, &Date.to_iso8601/1)
+  end
+
+  defp assign_date(socket, date) do
+    boats = Playback.list_active_boats(date, socket.assigns.timezone)
+
+    socket
+    |> assign(:selected_date, date)
+    |> assign(:boats, boats)
+  end
 end

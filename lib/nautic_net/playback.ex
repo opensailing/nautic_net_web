@@ -25,6 +25,11 @@ defmodule NauticNet.Playback do
     |> distinct(true)
     |> Repo.all()
     |> Enum.sort(Date)
+    |> case do
+      # Always return a nonempty list
+      [] -> [Date.utc_today()]
+      dates -> dates
+    end
   end
 
   @doc """
