@@ -148,6 +148,53 @@ defmodule NauticNet.Playback do
     end
   end
 
+  @doc """
+  Returns a list of coordinate tuples for display in MapLive.
+
+      [{%NaiveDateTime{}, latitude, longitude}, ...]
+
+  """
+  def list_coordinates(%Boat{} = boat, %Date{} = date, timezone, data_sources) do
+    position_data_source = fetch_data_source!(data_sources, "position")
+
+    Sample
+    |> where_data_source(position_data_source)
+    |> where([s], s.boat_id == ^boat.id)
+    |> where([s], fragment("(? at time zone ?)::date", s.time, ^timezone) == ^date)
+    |> order_by([s], s.time)
+    |> select([s], {s.time, s.position})
+    |> Repo.all()
+    |> Enum.map(fn {time, %Geo.Point{coordinates: {lon, lat}}} ->
+      # TODO: Convert `time` to correct timezone (need to add Timex)
+      {DateTime.to_naive(time), lat, lon}
+    end)
+  end
+
+  defp fetch_data_source!(data_sources, data_source_id) do
+    data_sources
+    |> Enum.find(&(&1.id == data_source_id))
+    |> case do
+      %DataSource{} = data_source -> data_source
+      _ -> raise ArgumentError, "invalid data source id #{inspect(data_source_id)}"
+    end
+  end
+
+  defp where_data_source(sample_query, %DataSource{selected_sensor: nil}) do
+    where(sample_query, false)
+  end
+
+  defp where_data_source(sample_query, %DataSource{} = data_source) do
+    sample_query
+    |> where([s], s.sensor_id == ^data_source.selected_sensor.id)
+    |> where([s], s.measurement == ^data_source.measurement)
+    |> where_reference(data_source.reference)
+  end
+
+  defp where_reference(sample_query, nil), do: where(sample_query, [s], is_nil(s.reference))
+
+  defp where_reference(sample_query, reference),
+    do: where(sample_query, [s], s.reference == ^reference)
+
   # defp get_data_source(id) do
   #   Enum.find(all_data_sources(), &(&1.id == id)) ||
   #     raise "could not find DataSource with id #{inspect(id)}"
