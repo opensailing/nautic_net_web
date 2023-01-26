@@ -113,7 +113,7 @@ defmodule NauticNet.Playback do
         measurement: :heading,
         # TODO: Populate the heading reference on the device
         # TODO: If heading data is only magnetic, we need to convert from °M to °T using an API or other data source
-        #       for magnetic declination
+        #       to determine magnetic declination
         reference: :none
       },
       %DataSource{
