@@ -75,7 +75,10 @@ defmodule NauticNet.MixProject do
       {:netcdf, "~> 0.1"},
       {:exla, "~> 0.4"},
       {:ex_cldr_calendars, "~> 1.21"},
-      {:protobuf, "~> 0.10.0"}
+      {:protobuf, "~> 0.10.0"},
+
+      # Timex
+      {:timex, "~> 3.7.9"}
     ]
   end
 
