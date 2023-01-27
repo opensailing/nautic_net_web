@@ -34,7 +34,7 @@
   phx-throttle="500"
   class="my-4"
 >
-  <label for="position"><%= print_coordinates(@current_coordinates) %></label>
+  <label for="position"><%= print_coordinates(@current_coordinates, @timezone) %></label>
   <input
     style="width:100%"
     type="range"
