@@ -12,8 +12,8 @@ defmodule NauticNet.Coordinates do
         |> String.split(",")
         |> List.to_tuple()
         |> then(fn {time, latitude, longitude} ->
-          {NaiveDateTime.from_iso8601!(time), String.to_float(latitude),
-           String.to_float(longitude)}
+          {:ok, utc_datetime, 0} = DateTime.from_iso8601(time)
+          {utc_datetime, String.to_float(latitude), String.to_float(longitude)}
         end))
     )
   end

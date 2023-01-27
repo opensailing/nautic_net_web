@@ -38,7 +38,7 @@ defmodule NauticNet.Playback do
   def list_active_boats(%Date{} = date, timezone) do
     boat_ids =
       Sample
-      |> where([s], fragment("(? at time zone ?)::date", s.time, ^timezone) == ^date)
+      |> where_date(date, timezone)
       |> select([s], s.boat_id)
       |> distinct(true)
       |> Repo.all()
@@ -115,8 +115,8 @@ defmodule NauticNet.Playback do
     # [%{measurement: :foo, reference: :bar, sensor_id: "bat"}, ...]
     known_sensor_measurements =
       Sample
-      |> where([s], fragment("(? at time zone ?)::date", s.time, ^timezone) == ^date)
       |> where([s], s.boat_id == ^boat.id)
+      |> where_date(date, timezone)
       |> select([s], %{measurement: s.measurement, reference: s.reference, sensor_id: s.sensor_id})
       |> distinct(true)
       |> Repo.all()
@@ -151,7 +151,7 @@ defmodule NauticNet.Playback do
   @doc """
   Returns a list of coordinate tuples for display in MapLive.
 
-      [{%NaiveDateTime{}, latitude, longitude}, ...]
+      [{%DateTime{}, latitude, longitude}, ...]
 
   """
   def list_coordinates(%Boat{} = boat, %Date{} = date, timezone, data_sources) do
@@ -160,14 +160,31 @@ defmodule NauticNet.Playback do
     Sample
     |> where_data_source(position_data_source)
     |> where([s], s.boat_id == ^boat.id)
-    |> where([s], fragment("(? at time zone ?)::date", s.time, ^timezone) == ^date)
+    |> where_date(date, timezone)
     |> order_by([s], s.time)
     |> select([s], {s.time, s.position})
     |> Repo.all()
-    |> Enum.map(fn {time, %Geo.Point{coordinates: {lon, lat}}} ->
-      # TODO: Convert `time` to correct timezone (need to add Timex)
-      {DateTime.to_naive(time), lat, lon}
+    |> Enum.map(fn {utc_datetime, %Geo.Point{coordinates: {lon, lat}}} ->
+      {utc_datetime, lat, lon}
     end)
+  end
+
+  # Convert the date to a pair of DateTimes that represent the start and end of the day in the desired
+  # timezone, but then convert to UTC for easy interpolation into the database
+  defp where_date(query, %Date{} = date, timezone) do
+    start_utc =
+      date
+      |> Timex.to_datetime(timezone)
+      |> Timex.beginning_of_day()
+      |> Timex.to_datetime("Etc/UTC")
+
+    end_utc =
+      date
+      |> Timex.to_datetime(timezone)
+      |> Timex.end_of_day()
+      |> Timex.to_datetime("Etc/UTC")
+
+    where(query, [s], s.time >= ^start_utc and s.time <= ^end_utc)
   end
 
   defp fetch_data_source!(data_sources, data_source_id) do
@@ -194,17 +211,4 @@ defmodule NauticNet.Playback do
 
   defp where_reference(sample_query, reference),
     do: where(sample_query, [s], s.reference == ^reference)
-
-  # defp get_data_source(id) do
-  #   Enum.find(all_data_sources(), &(&1.id == id)) ||
-  #     raise "could not find DataSource with id #{inspect(id)}"
-  # end
-
-  # defp for_data_source(sample_query, data_source_id) when is_binary(data_source_id) do
-  #   for_data_source(sample_query, get_data_source(data_source_id))
-  # end
-
-  # defp for_data_source(sample_query, %DataSource{} = hud) do
-  #   where(sample_query, [s], s.measurement == ^hud.measurement and s.reference == ^hud.reference)
-  # end
 end

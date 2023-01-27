@@ -11,7 +11,7 @@ defmodule NauticNetWeb.MapLive do
   def mount(_params, _session, socket) do
     if connected?(socket), do: PubSub.subscribe(NauticNet.PubSub, "leaflet")
 
-    {now, us} = NaiveDateTime.utc_now() |> NaiveDateTime.to_gregorian_seconds()
+    {now, us} = DateTime.utc_now() |> DateTime.to_gregorian_seconds()
     now = now + us / 1_000_000
 
     min_lat = 42.1666
@@ -103,14 +103,14 @@ defmodule NauticNetWeb.MapLive do
     # epoch for fixed dataset is from 59898.0 to 59904.0
     # 10751 is the max value for position
 
-    {now, us} = NaiveDateTime.utc_now() |> NaiveDateTime.to_gregorian_seconds()
+    {now, us} = DateTime.utc_now() |> DateTime.to_gregorian_seconds()
     now = now + us / 1_000_000
     diff = now - assigns.last_current_event_sent_at
 
     {time, _new_lat, _new_lon} = new_coordinates
     {t0, _, _} = Enum.at(assigns.coordinates, 0)
 
-    milliseconds_diff = NaiveDateTime.diff(time, t0, :millisecond)
+    milliseconds_diff = DateTime.diff(time, t0, :millisecond)
     time = NauticNet.NetCDF.epoch() + milliseconds_diff / (24 * :timer.hours(1))
 
     index = NauticNet.NetCDF.get_geodata_time_index(time)
@@ -224,9 +224,14 @@ defmodule NauticNetWeb.MapLive do
     {:noreply, push_event(socket, event, %{latitude: latitude, longitude: longitude})}
   end
 
-  defp print_coordinates({datetime, latitude, longitude}),
-    do:
-      "#{NaiveDateTime.to_string(datetime)} [#{Float.round(latitude, 4)}, #{Float.round(longitude, 4)}]"
+  defp print_coordinates({utc_datetime, latitude, longitude}, timezone) do
+    local_datetime =
+      utc_datetime
+      |> Timex.to_datetime(timezone)
+      |> Timex.format!("{h12}:{m}:{s} {am} {Zabbr}")
+
+    "#{local_datetime} [#{Float.round(latitude, 4)}, #{Float.round(longitude, 4)}]"
+  end
 
   defp assign_dates(socket) do
     [first_date | _] = dates = Playback.list_all_dates(socket.assigns.timezone)
