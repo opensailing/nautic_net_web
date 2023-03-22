@@ -273,7 +273,12 @@ defmodule NauticNet.NetCDF do
     # count is returned as a number which can be used for slicing
     count = Nx.to_number(Nx.sum(idx))
 
-    filter_bounding_box_n(speed, direction, lat, lon, take_idx, count: count)
+    if count == 0 do
+      # No points found
+      Nx.tensor([[0, 0, 0, 0]], type: {:f, 64})
+    else
+      filter_bounding_box_n(speed, direction, lat, lon, take_idx, count: count)
+    end
   end
 
   defnp filter_bounding_box_n(speed, direction, lat, lon, take_idx, opts \\ []) do
