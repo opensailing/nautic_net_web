@@ -3,14 +3,11 @@ defmodule NauticNet.Playback do
   Fetch sample data for display.
   """
 
-  defmodule DataSource do
-    defstruct [:id, :name, :measurement, :reference, :selected_sensor, sensors: []]
-  end
-
   import Ecto.Query
 
   alias NauticNet.Data.Sample
   alias NauticNet.Data.Sensor
+  alias NauticNet.Playback.DataSource
   alias NauticNet.Racing.Boat
   alias NauticNet.Repo
 
@@ -169,6 +166,25 @@ defmodule NauticNet.Playback do
     end)
   end
 
+  def fill_latest_samples(boat, datetime, data_sources) do
+    Enum.map(data_sources, fn data_source ->
+      # TODO: Optimize this, since it calls N queries
+      %{data_source | latest_sample: get_latest_sample(boat, datetime, data_source)}
+    end)
+  end
+
+  def get_latest_sample(%Boat{} = boat, %DateTime{} = datetime, data_source) do
+    cutoff_datetime = DateTime.add(datetime, -1, :minute)
+
+    Sample
+    |> where_data_source(data_source)
+    |> where([s], s.boat_id == ^boat.id)
+    |> where([s], s.time < ^datetime and s.time > ^cutoff_datetime)
+    |> order_by([s], desc: s.time)
+    |> limit(1)
+    |> Repo.one()
+  end
+
   # Convert the date to a pair of DateTimes that represent the start and end of the day in the desired
   # timezone, but then convert to UTC for easy interpolation into the database
   defp where_date(query, %Date{} = date, timezone) do
@@ -187,7 +203,7 @@ defmodule NauticNet.Playback do
     where(query, [s], s.time >= ^start_utc and s.time <= ^end_utc)
   end
 
-  defp fetch_data_source!(data_sources, data_source_id) do
+  def fetch_data_source!(data_sources, data_source_id) do
     data_sources
     |> Enum.find(&(&1.id == data_source_id))
     |> case do
