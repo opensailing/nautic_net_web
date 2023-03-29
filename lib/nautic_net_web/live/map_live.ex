@@ -3,8 +3,10 @@ defmodule NauticNetWeb.MapLive do
 
   alias Phoenix.PubSub
   alias NauticNet.Animation
+  alias NauticNet.Data.Sample
   alias NauticNet.Coordinates
   alias NauticNet.Playback
+  alias NauticNet.Playback.DataSource
 
   require Logger
 
@@ -135,12 +137,20 @@ defmodule NauticNetWeb.MapLive do
         {assigns.last_current_event_index, assigns.last_current_event_sent_at, nil}
       end
 
+    data_sources =
+      Playback.fill_latest_samples(
+        socket.assigns.selected_boat,
+        current_datetime(new_coordinates),
+        socket.assigns.data_sources
+      )
+
     socket =
       socket
       |> assign(:current_position, new_position)
       |> assign(:current_coordinates, new_coordinates)
       |> assign(:last_current_event_sent_at, last_current_event_sent_at)
       |> assign(:last_current_event_index, last_current_event_index)
+      |> assign(:data_sources, data_sources)
 
     socket =
       if current_data do
@@ -300,4 +310,69 @@ defmodule NauticNetWeb.MapLive do
   defp sensor_options(sensors) do
     [{"Off", ""}] ++ Enum.map(sensors, &{&1.name, &1.id})
   end
+
+  defp current_datetime({utc_datetime, _lat, _lon}), do: utc_datetime
+
+  defp get_latest_sample(data_sources, data_source_id) do
+    case Enum.find(data_sources, &(&1.id == data_source_id)) do
+      %DataSource{latest_sample: %Sample{} = sample} -> sample
+      _ -> nil
+    end
+  end
+
+  attr :label, :string, required: true
+  attr :sample, :map, required: true
+  attr :field, :atom, required: true, values: [:angle_rad, :depth_m, :speed_m_s]
+  attr :unit, :atom, required: true, values: [:deg, :kn, :ft]
+
+  defp sample_view(assigns) do
+    display_value =
+      if assigns.sample do
+        case assigns.field do
+          :angle_rad ->
+            assigns.sample.angle_rad
+            |> convert(:rad, assigns.unit)
+            |> :erlang.float_to_binary(decimals: 0)
+
+          :depth_m ->
+            assigns.sample.depth_m
+            |> convert(:m, assigns.unit)
+            |> :erlang.float_to_binary(decimals: 1)
+
+          :speed_m_s ->
+            assigns.sample.speed_m_s
+            |> convert(:m_s, assigns.unit)
+            |> :erlang.float_to_binary(decimals: 1)
+        end
+      else
+        "--"
+      end
+
+    assigns = assign(assigns, display_value: display_value)
+
+    ~H"""
+    <div class="border rounded-lg p-2 flex flex-col">
+      <div class="flex justify-between font-semibold text-sm">
+        <div><%= @label %></div>
+        <div><%= unit(@unit) %></div>
+      </div>
+      <div class="text-center text-4xl flex-grow flex items-center justify-center">
+        <%= @display_value %>
+      </div>
+    </div>
+    """
+  end
+
+  defp unit(:deg), do: "°"
+  defp unit(:kn), do: "kn"
+  defp unit(:ft), do: "ft"
+
+  defp convert(value, :m_s, :m_s), do: value * 1.0
+  defp convert(value, :m_s, :kn), do: value * 1.94384
+
+  defp convert(value, :rad, :rad), do: value * 1.0
+  defp convert(value, :rad, :deg), do: value * 180 / :math.pi()
+
+  defp convert(value, :m, :m), do: value * 1.0
+  defp convert(value, :m, :ft), do: value * 3.28084
 end
