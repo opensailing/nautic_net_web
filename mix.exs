@@ -55,7 +55,7 @@ defmodule NauticNet.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:plug_cowboy, "~> 2.5"},
-      {:flame_on, github: "DockYard/flame_on", branch: "mb-liveview-0-18"},
+      {:flame_on, github: "DockYard/flame_on", branch: "main"},
 
       # Postgres
       {:geo_postgis, "~> 3.4"},
