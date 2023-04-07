@@ -28,6 +28,9 @@ RUN apt-get update -y && apt-get install -y build-essential git libhdf5-serial-d
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain 1.66.1
 ENV PATH="/root/.cargo/bin:$PATH"
 
+# Required for netcdf dep
+ENV NETCDF_BUILD=true
+
 # prepare build dir
 WORKDIR /app
 
