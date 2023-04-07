@@ -72,10 +72,11 @@ defmodule NauticNet.MixProject do
       # {:nautic_net_protobuf, path: "../nautic_net_protobuf"},
 
       # Visualizer
-      {:netcdf, "~> 0.1"},
+      {:netcdf, "~> 0.1", github: "DockYard/netcdf", ref: "main"},
       {:exla, "~> 0.4"},
       {:ex_cldr_calendars, "~> 1.21"},
       {:protobuf, "~> 0.10.0"},
+      {:rustler, ">= 0.0.0", optional: true},
 
       # Timex
       {:timex, "~> 3.7.9"}

@@ -1,6 +1,7 @@
 # NauticNet
 
 ## Setup
+
 ```sh
 asdf install
 
