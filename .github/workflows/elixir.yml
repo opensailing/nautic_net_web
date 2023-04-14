@@ -24,7 +24,7 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: nautic_net_web_test
-        image: postgres:15
+        image: timescale/timescaledb-ha:pg14-latest
         ports: ['5432:5432']
         options: >-
           --health-cmd pg_isready
