@@ -21,15 +21,16 @@ ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
 FROM ${BUILDER_IMAGE} as builder
 
 # install build dependencies
-RUN apt-get update -y && apt-get install -y build-essential git libhdf5-serial-dev libnetcdf-dev curl \
-  && apt-get clean && rm -f /var/lib/apt/lists/*_*
+RUN apt-get update -y && \
+  apt-get install -y build-essential git curl && \
+  apt-get clean && \
+  rm -f /var/lib/apt/lists/*_*
 
-# install Rust non-interactively, and put it in the $PATH so the netcdf Elixir dep can find it
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain 1.66.1
-ENV PATH="/root/.cargo/bin:$PATH"
-
-# Required for netcdf dep
-ENV NETCDF_BUILD=true
+# Add Yarn respository, and install Yarn (https://stackoverflow.com/a/47680012)
+RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - && \
+  echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list && \
+  apt-get update -y && \
+  apt-get install -y yarn
 
 # prepare build dir
 WORKDIR /app
@@ -58,7 +59,8 @@ COPY lib lib
 
 COPY assets assets
 
-# compile assets
+# Fetch and compile assets
+RUN cd assets && yarn install
 RUN mix assets.deploy
 
 # Compile the release
