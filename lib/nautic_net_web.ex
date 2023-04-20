@@ -106,10 +106,8 @@ defmodule NauticNetWeb do
   end
 
   defp live_inspect do
-    if Mix.env() == :dev do
-      quote do
-        import LiveInspect, only: [live_inspect: 1]
-      end
+    quote do
+      import LiveInspect, only: [live_inspect: 1]
     end
   end
 
