@@ -22,7 +22,7 @@ FROM ${BUILDER_IMAGE} as builder
 
 # install build dependencies
 RUN apt-get update -y && \
-  apt-get install -y build-essential git curl && \
+  apt-get install -y cmake build-essential git curl wget openssl && \
   apt-get clean && \
   rm -f /var/lib/apt/lists/*_*
 
@@ -31,6 +31,19 @@ RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - && \
   echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list && \
   apt-get update -y && \
   apt-get install -y yarn
+
+# install Rust non-interactively, and put it in the $PATH so the netcdf Elixir dep can find it
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain 1.66.1
+ENV PATH="/root/.cargo/bin:$PATH"
+
+ENV CONDA_PREFIX=/opt/conda
+ENV PATH=${CONDA_PREFIX}/bin:$PATH
+RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-$(arch).sh -O ~/miniconda.sh && /bin/bash ~/miniconda.sh -b -p ${CONDA_PREFIX}
+RUN conda install -y -c conda-forge libnetcdf=4.8.1 hdf5=1.12.1
+ENV HDF5_DIR=${CONDA_PREFIX}
+ENV NETCDF_DIR=${CONDA_PREFIX}
+ENV RUSTFLAGS="-C link-args=-Wl,-rpath,$CONDA_PREFIX/lib"
+ENV NETCDF_BUILD=true
 
 # prepare build dir
 WORKDIR /app
