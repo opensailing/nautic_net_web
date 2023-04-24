@@ -22,7 +22,7 @@ FROM ${BUILDER_IMAGE} as builder
 
 # install build dependencies
 RUN apt-get update -y && \
-  apt-get install -y cmake build-essential git curl wget openssl && \
+  apt-get install -y cmake build-essential git curl wget && \
   apt-get clean && \
   rm -f /var/lib/apt/lists/*_*
 
@@ -40,9 +40,6 @@ ENV CONDA_PREFIX=/opt/conda
 ENV PATH=${CONDA_PREFIX}/bin:$PATH
 RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-$(arch).sh -O ~/miniconda.sh && /bin/bash ~/miniconda.sh -b -p ${CONDA_PREFIX}
 RUN conda install -y -c conda-forge libnetcdf=4.8.1 hdf5=1.12.1
-ENV HDF5_DIR=${CONDA_PREFIX}
-ENV NETCDF_DIR=${CONDA_PREFIX}
-ENV RUSTFLAGS="-C link-args=-Wl,-rpath,$CONDA_PREFIX/lib"
 ENV NETCDF_BUILD=true
 
 # prepare build dir
@@ -89,7 +86,7 @@ RUN mix release
 # the compiled release and other runtime necessities
 FROM ${RUNNER_IMAGE}
 
-RUN apt-get update -y && apt-get install -y libstdc++6 openssl libncurses5 locales \
+RUN apt-get update -y && apt-get install -y libstdc++6 libncurses5 locales \
   && apt-get clean && rm -f /var/lib/apt/lists/*_*
 
 # Set the locale
@@ -113,5 +110,5 @@ USER nobody
 CMD ["/app/bin/server"]
 
 # Appended by flyctl
-ENV ECTO_IPV6 true
-ENV ERL_AFLAGS "-proto_dist inet6_tcp"
+# ENV ECTO_IPV6 true
+# ENV ERL_AFLAGS "-proto_dist inet6_tcp"
