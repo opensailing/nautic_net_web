@@ -13,7 +13,8 @@ defmodule NauticNet.NetCDF do
   @pi :math.pi()
 
   def start_link(%{dataset_filename: filename, start_date: start_date, end_date: end_date}) do
-    {:ok, file} = NetCDF.File.open(filename)
+    case NetCDF.File.open(filename) do
+      {:ok, file} ->
     Logger.info("Loading NetCDF data")
     file_data = load(file)
 
@@ -55,6 +56,11 @@ defmodule NauticNet.NetCDF do
       end,
       name: __MODULE__
     )
+
+      _ ->
+        Logger.info("NetCDF file not found. Skipping Agent.")
+        :ignore
+    end
   end
 
   @doc """
