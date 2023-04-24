@@ -20,6 +20,40 @@ defmodule NauticNet.Ingest do
     # This will raise if there is an error
     data_set = DataSet.decode(encoded_data_set)
 
+    # TODO: Handle TrackerSample as a special case
+    # %NauticNet.Protobuf.DataSet{
+    #   counter: 0,
+    #   data_points: [
+    #     %NauticNet.Protobuf.DataSet.DataPoint{
+    #       timestamp: %Google.Protobuf.Timestamp{
+    #         seconds: 1682024372,
+    #         nanos: 0,
+    #         __unknown_fields__: []
+    #       },
+    #       hw_unique_number: 0,
+    #       sample: {:tracker,
+    #        %NauticNet.Protobuf.TrackerSample{
+    #          rssi: -24,
+    #          rover_data: %NauticNet.Protobuf.RoverData{
+    #            latitude: 41.863887786865234,
+    #            longitude: -72.12764739990234,
+    #            heading: 0,
+    #            heel: 242,
+    #            cog: 2360,
+    #            sog: 1,
+    #            battery: 0,
+    #            __unknown_fields__: []
+    #          },
+    #          __unknown_fields__: []
+    #        }},
+    #       __unknown_fields__: []
+    #     }
+    #   ],
+    #   ref: "",
+    #   boat_identifier: "F515BC55",
+    #   __unknown_fields__: []
+    # }
+
     # Find the boat
     boat = Racing.get_or_create_boat_by_identifier(data_set.boat_identifier)
 
