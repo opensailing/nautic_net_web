@@ -5,37 +5,18 @@ defmodule NauticNet.Data.Sample do
   alias NauticNet.Protobuf
   alias NauticNet.Racing.Boat
 
-  @type_values [
-    :heading,
-    :position,
-    :speed,
-    :velocity,
-    :water_depth,
-    :wind_velocity
-  ]
-
-  @measurement_values [
-    :heading,
-    :position,
-    :speed,
-    :velocity,
-    :water_depth,
-    :wind_velocity
-  ]
-
-  @reference_values [
-    # Any:
-    :none,
-    # Heading and wind:
-    :true_north,
-    :magnetic_north,
-    # Wind:
-    :apparent,
-    :true_north_boat,
-    :true_north_water,
-    # Speed and velocity:
-    :water,
-    :ground
+  @types [
+    %{type: :apparent_wind, name: "Apparent Wind", unit: :m_s},
+    %{type: :battery, name: "Battery", unit: :percent},
+    %{type: :heel, name: "Heel", unit: :rad},
+    %{type: :magnetic_heading, name: "Magnetic Heading", unit: :rad},
+    %{type: :position, name: "Position", unit: :position},
+    %{type: :rssi, name: "RSSI", unit: :dbm},
+    %{type: :speed_through_water, name: "Speed Through Water", unit: :m_s},
+    %{type: :true_heading, name: "True Heading", unit: :rad},
+    %{type: :true_wind, name: "True Wind", unit: :m_s},
+    %{type: :velocity_over_ground, name: "Velocity Over Ground", unit: :m_s},
+    %{type: :water_depth, name: "Water Depth", unit: :m}
   ]
 
   @primary_key false
@@ -43,111 +24,141 @@ defmodule NauticNet.Data.Sample do
     belongs_to :boat, Boat
     belongs_to :sensor, Sensor
 
-    # The name of the specific measurement
-    field :measurement, Ecto.Enum, values: @measurement_values
-
     # The moment the sample was taken
     field :time, :utc_datetime_usec
 
     # The data type of this sample
-    field :type, Ecto.Enum, values: @type_values
+    field :type, Ecto.Enum, values: Enum.map(@types, & &1.type)
 
-    # The point of reference for this measurement (speed, velocity, wind_velocity, heading)
-    field :reference, Ecto.Enum, values: @reference_values
+    # Unit determined by type
+    field :magnitude, :float
 
-    ### Sample fields, set sparsely depending on :type
+    # Radians
+    field :angle, :float
 
-    # velocity, wind_velocity, heading
-    field :angle_rad, :float
-
-    # water_depth
-    field :depth_m, :float
-
-    # position
+    # Lon/lat coordinate (in that order!)
     field :position, Geo.PostGIS.Geometry
-
-    # speed, velocity, wind_velocity
-    field :speed_m_s, :float
   end
 
-  def attrs_from_protobuf_sample({field, %Protobuf.HeadingSample{} = sample}) do
+  def attrs_from_protobuf_sample({_field, %Protobuf.HeadingSample{} = sample}) do
+    type =
+      case sample do
+        %{angle_reference: :ANGLE_REFERENCE_TRUE_NORTH} -> :true_heading
+        _ -> :magnetic_heading
+      end
+
     {:ok,
-     %{
-       type: :heading,
-       measurement: field,
-       angle_rad: Protobuf.Convert.decode_unit(sample.angle_mrad, :mrad, :rad),
-       reference: decode_protobuf_enum(sample.angle_reference)
-     }}
+     [
+       %{
+         type: type,
+         angle: Protobuf.Convert.decode_unit(sample.angle_mrad, :mrad, :rad)
+       }
+     ]}
   end
 
-  def attrs_from_protobuf_sample({field, %Protobuf.PositionSample{} = sample}) do
+  def attrs_from_protobuf_sample({_field, %Protobuf.PositionSample{} = sample}) do
     {:ok,
-     %{
-       type: :position,
-       measurement: field,
-       # NOTE!!! The ordering of this coordinate tuple in PostGIS is {x, y}, and hence {longitude, latitude}
-       position: %Geo.Point{coordinates: {sample.longitude, sample.latitude}}
-     }}
+     [
+       %{
+         type: :position,
+         # NOTE!!! The ordering of this coordinate tuple in PostGIS is {x, y}, and hence {longitude, latitude}
+         position: %Geo.Point{coordinates: {sample.longitude, sample.latitude}}
+       }
+     ]}
   end
 
-  def attrs_from_protobuf_sample({field, %Protobuf.SpeedSample{} = sample}) do
+  def attrs_from_protobuf_sample({_field, %Protobuf.SpeedSample{} = sample}) do
     {:ok,
-     %{
-       type: :speed,
-       measurement: field,
-       speed_m_s: Protobuf.Convert.decode_unit(sample.speed_cm_s, :cm_s, :m_s),
-       reference: decode_protobuf_enum(sample.speed_reference)
-     }}
+     [
+       %{
+         type: :speed_through_water,
+         magnitude: Protobuf.Convert.decode_unit(sample.speed_cm_s, :cm_s, :m_s)
+       }
+     ]}
   end
 
-  def attrs_from_protobuf_sample({field, %Protobuf.VelocitySample{} = sample}) do
+  def attrs_from_protobuf_sample({_field, %Protobuf.VelocitySample{} = sample}) do
     {:ok,
-     %{
-       type: :velocity,
-       measurement: field,
-       speed_m_s: Protobuf.Convert.decode_unit(sample.speed_cm_s, :cm_s, :m_s),
-       angle_rad: Protobuf.Convert.decode_unit(sample.angle_mrad, :mrad, :rad),
-       reference: decode_protobuf_enum(sample.angle_reference)
-     }}
+     [
+       %{
+         type: :velocity_over_ground,
+         magnitude: Protobuf.Convert.decode_unit(sample.speed_cm_s, :cm_s, :m_s),
+         angle: Protobuf.Convert.decode_unit(sample.angle_mrad, :mrad, :rad)
+       }
+     ]}
   end
 
-  def attrs_from_protobuf_sample({field, %Protobuf.WaterDepthSample{} = sample}) do
+  def attrs_from_protobuf_sample({_field, %Protobuf.WaterDepthSample{} = sample}) do
     {:ok,
-     %{
-       type: :water_depth,
-       measurement: field,
-       depth_m: Protobuf.Convert.decode_unit(sample.depth_cm, :cm, :m)
-     }}
+     [
+       %{
+         type: :water_depth,
+         magnitude: Protobuf.Convert.decode_unit(sample.depth_cm, :cm, :m)
+       }
+     ]}
   end
 
-  def attrs_from_protobuf_sample({field, %Protobuf.WindVelocitySample{} = sample}) do
+  def attrs_from_protobuf_sample(
+        {_field, %Protobuf.WindVelocitySample{wind_reference: :WIND_REFERENCE_APPARENT} = sample}
+      ) do
     {:ok,
-     %{
-       type: :wind_velocity,
-       measurement: field,
-       speed_m_s: Protobuf.Convert.decode_unit(sample.speed_cm_s, :cm_s, :m_s),
-       angle_rad: Protobuf.Convert.decode_unit(sample.angle_mrad, :mrad, :rad),
-       reference: decode_protobuf_enum(sample.wind_reference)
-     }}
+     [
+       %{
+         type: :apparent_wind,
+         magnitude: Protobuf.Convert.decode_unit(sample.speed_cm_s, :cm_s, :m_s),
+         angle: Protobuf.Convert.decode_unit(sample.angle_mrad, :mrad, :rad)
+       }
+     ]}
+  end
+
+  def attrs_from_protobuf_sample(
+        {_field,
+         %Protobuf.WindVelocitySample{wind_reference: :WIND_REFERENCE_TRUE_NORTH} = sample}
+      ) do
+    {:ok,
+     [
+       %{
+         type: :true_wind,
+         magnitude: Protobuf.Convert.decode_unit(sample.speed_cm_s, :cm_s, :m_s),
+         angle: Protobuf.Convert.decode_unit(sample.angle_mrad, :mrad, :rad)
+       }
+     ]}
+  end
+
+  def attrs_from_protobuf_sample(
+        {_field, %Protobuf.TrackerSample{rover_data: %Protobuf.RoverData{} = rover_data} = sample}
+      ) do
+    {:ok,
+     [
+       %{type: :rssi, magnitude: sample.rssi * 1.0},
+       %{
+         type: :position,
+         # NOTE!!! The ordering of this coordinate tuple in PostGIS is {x, y}, and hence {longitude, latitude}
+         position: %Geo.Point{coordinates: {rover_data.longitude, rover_data.latitude}}
+       },
+       %{
+         type: :magnetic_heading,
+         angle: Protobuf.Convert.decode_unit(rover_data.heading, :ddeg, :rad)
+       },
+       %{
+         type: :heel,
+         angle: Protobuf.Convert.decode_unit(rover_data.heel - 90, :ddeg, :rad)
+       },
+       %{
+         type: :velocity_over_ground,
+         magnitude: Protobuf.Convert.decode_unit(rover_data.sog, :dkn, :m_s),
+         angle: Protobuf.Convert.decode_unit(rover_data.cog, :ddeg, :rad)
+       },
+
+       # Value of 0 implies no data
+       if(sample.rover_data.battery != 0,
+         do: %{type: :battery, magnitude: sample.rover_data.battery * 1.0}
+       )
+     ]
+     |> Enum.reject(&is_nil/1)}
   end
 
   def attrs_from_protobuf_sample(_), do: :error
 
-  defp decode_protobuf_enum(:WIND_REFERENCE_NONE), do: :none
-  defp decode_protobuf_enum(:WIND_REFERENCE_TRUE_NORTH), do: :true_north
-  defp decode_protobuf_enum(:WIND_REFERENCE_MAGNETIC_NORTH), do: :magnetic_north
-  defp decode_protobuf_enum(:WIND_REFERENCE_APPARENT), do: :apparent
-  defp decode_protobuf_enum(:WIND_REFERENCE_BOAT_TRUE_NORTH), do: :true_north_boat
-  defp decode_protobuf_enum(:WIND_REFERENCE_WATER_TRUE_NORTH), do: :true_north_water
-
-  defp decode_protobuf_enum(:ANGLE_REFERENCE_NONE), do: :none
-  defp decode_protobuf_enum(:ANGLE_REFERENCE_TRUE_NORTH), do: :true_north
-  defp decode_protobuf_enum(:ANGLE_REFERENCE_MAGNETIC_NORTH), do: :magnetic_north
-
-  defp decode_protobuf_enum(:SPEED_REFERENCE_NONE), do: :none
-  defp decode_protobuf_enum(:SPEED_REFERENCE_GROUND), do: :ground
-  defp decode_protobuf_enum(:SPEED_REFERENCE_WATER), do: :water
-
-  defp decode_protobuf_enum(unknown),
-    do: raise(ArgumentError, "Unexpected protobuf enum value #{inspect(unknown)}")
+  def types, do: @types
 end

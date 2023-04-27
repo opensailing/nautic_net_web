@@ -330,17 +330,17 @@ defmodule NauticNetWeb.MapLive do
       if assigns.sample do
         case assigns.field do
           :angle_rad ->
-            assigns.sample.angle_rad
+            assigns.sample.angle
             |> convert(:rad, assigns.unit)
             |> :erlang.float_to_binary(decimals: 0)
 
           :depth_m ->
-            assigns.sample.depth_m
+            assigns.sample.magnitude
             |> convert(:m, assigns.unit)
             |> :erlang.float_to_binary(decimals: 1)
 
           :speed_m_s ->
-            assigns.sample.speed_m_s
+            assigns.sample.magnitude
             |> convert(:m_s, assigns.unit)
             |> :erlang.float_to_binary(decimals: 1)
         end
