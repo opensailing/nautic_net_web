@@ -44,6 +44,8 @@ defmodule NauticNet.Ingest do
     # Do bulk insert – might need to chunk up items if the individual inserts get too big!
     Repo.insert_all(Sample, sample_rows)
 
+    broadcast_new_samples(boat, sample_rows)
+
     :ok
   end
 
@@ -108,5 +110,13 @@ defmodule NauticNet.Ingest do
     %Sensor{boat_id: boat.id}
     |> Sensor.insert_changeset(params)
     |> Repo.insert!()
+  end
+
+  defp broadcast_new_samples(boat, sample_rows) do
+    samples = Enum.map(sample_rows, &struct!(Sample, &1))
+
+    Phoenix.PubSub.broadcast(NauticNet.PubSub, "boat:#{boat.id}", {:new_samples, samples})
+
+    :ok
   end
 end
