@@ -51,55 +51,13 @@ defmodule NauticNet.Playback do
   measurements that can be displayed directly from the sample data.
   """
   def all_data_sources do
-    [
+    Enum.map(Sample.types(), fn type ->
       %DataSource{
-        id: "position",
-        name: "Position",
-        measurement: :position,
-        reference: nil
-      },
-      %DataSource{
-        id: "true_heading",
-        name: "Heading (True)",
-        measurement: :heading,
-        # TODO: Populate the heading reference on the device
-        # TODO: If heading data is only magnetic, we need to convert from °M to °T using an API or other data source
-        #       to determine magnetic declination
-        reference: :none
-      },
-      %DataSource{
-        id: "speed_through_water",
-        name: "Speed Through Water",
-        measurement: :speed,
-        reference: :water
-      },
-      %DataSource{
-        id: "velocity_over_ground",
-        name: "SOG & COG",
-        measurement: :velocity,
-        reference: :true_north
-      },
-      %DataSource{
-        id: "apparent_wind",
-        name: "Apparent Wind",
-        measurement: :wind_velocity,
-        reference: :apparent
-      },
-      %DataSource{
-        id: "true_wind",
-        name: "True Wind",
-        measurement: :velocity,
-        # Unclear if this should be true_north_boat or true_north_water - we don't have any data
-        # for this yet to determine it.
-        reference: :true_north_boat
-      },
-      %DataSource{
-        id: "depth",
-        name: "Depth",
-        measurement: :water_depth,
-        reference: nil
+        id: to_string(type),
+        name: type.name,
+        type: type.type
       }
-    ]
+    end)
   end
 
   @doc """
@@ -219,12 +177,6 @@ defmodule NauticNet.Playback do
   defp where_data_source(sample_query, %DataSource{} = data_source) do
     sample_query
     |> where([s], s.sensor_id == ^data_source.selected_sensor.id)
-    |> where([s], s.measurement == ^data_source.measurement)
-    |> where_reference(data_source.reference)
+    |> where([s], s.type == ^data_source.type)
   end
-
-  defp where_reference(sample_query, nil), do: where(sample_query, [s], is_nil(s.reference))
-
-  defp where_reference(sample_query, reference),
-    do: where(sample_query, [s], s.reference == ^reference)
 end

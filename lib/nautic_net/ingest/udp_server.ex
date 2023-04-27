@@ -30,11 +30,18 @@ defmodule NauticNet.Ingest.UDPServer do
   @impl true
   def handle_info({:udp, _socket, _address, _port, data}, state) do
     # TODO: Kick this out to another process? Flow? GenStage? Something??
-    Ingest.insert_samples!(data)
+    case Ingest.insert_samples(data) do
+      :ok ->
+        :ok
+
+      {:error, error} ->
+        Logger.error("[UDPServer] Could not decode #{byte_size(data)} bytes: #{inspect(error)}")
+    end
+
     {:noreply, state}
   rescue
     _ ->
-      Logger.error("[UDPServer] Could not decode #{byte_size(data)} bytes")
+      Logger.error("[UDPServer] Error decoding #{byte_size(data)} bytes")
       {:noreply, state}
   end
 end

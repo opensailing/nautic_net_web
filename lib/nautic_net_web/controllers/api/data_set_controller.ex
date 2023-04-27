@@ -5,7 +5,7 @@ defmodule NauticNetWeb.API.DataSetController do
 
   def create(conn, %{"proto_base64" => proto_base64}) do
     case Base.decode64(proto_base64) do
-      {:ok, binary} -> Ingest.insert_samples!(binary)
+      {:ok, binary} -> Ingest.insert_samples(binary)
       :error -> raise "oh no"
     end
 
