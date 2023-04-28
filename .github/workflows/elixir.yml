@@ -1,4 +1,4 @@
-name: Elixir CI
+name: Nautic Net Web
 
 on:
   push:
@@ -17,7 +17,7 @@ permissions:
 jobs:
   build:
 
-    name: Build and test
+    name: CI
     runs-on: ubuntu-latest
     services:
       postgres:
