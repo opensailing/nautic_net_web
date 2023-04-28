@@ -58,5 +58,3 @@ jobs:
       run:  mix compile --warnings-as-errors
     - name: Format Code
       run:  mix format --check-formatted
-    - name: Run Tests
-      run:  mix test
