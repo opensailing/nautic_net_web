@@ -9,6 +9,7 @@ on:
 env:
   MIX_ENV: test
   ImageOS: ubuntu20
+  NETCDF_BUILD: true
 
 permissions:
   contents: read
