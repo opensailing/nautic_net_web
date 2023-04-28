@@ -15,47 +15,47 @@ defmodule NauticNet.NetCDF do
   def start_link(%{dataset_filename: filename, start_date: start_date, end_date: end_date}) do
     case NetCDF.File.open(filename) do
       {:ok, file} ->
-    Logger.info("Loading NetCDF data")
-    file_data = load(file)
+        Logger.info("Loading NetCDF data")
+        file_data = load(file)
 
-    Logger.info("Getting speed and direction tensors")
+        Logger.info("Getting speed and direction tensors")
 
-    start_mjd = Cldr.Calendar.modified_julian_day(start_date)
-    end_mjd = Cldr.Calendar.modified_julian_day(end_date)
+        start_mjd = Cldr.Calendar.modified_julian_day(start_date)
+        end_mjd = Cldr.Calendar.modified_julian_day(end_date)
 
-    {t, speed, direction} =
-      abs_and_direction_tensors(
-        file_data.u,
-        file_data.v,
-        Nx.tensor(file_data.t.value),
-        start_mjd,
-        end_mjd
-      )
+        {t, speed, direction} =
+          abs_and_direction_tensors(
+            file_data.u,
+            file_data.v,
+            Nx.tensor(file_data.t.value),
+            start_mjd,
+            end_mjd
+          )
 
-    {interpolated_time_t, original_indices, p_values} = interpolate_time(t)
+        {interpolated_time_t, original_indices, p_values} = interpolate_time(t)
 
-    # Logger.info("Interpolation duration #{duration / 1_000_000} seconds")
+        # Logger.info("Interpolation duration #{duration / 1_000_000} seconds")
 
-    lat_t = Nx.tensor(file_data.lat.value)
-    lon_t = Nx.tensor(file_data.lon.value)
+        lat_t = Nx.tensor(file_data.lat.value)
+        lon_t = Nx.tensor(file_data.lon.value)
 
-    Logger.info("Starting NetCDF Agent")
+        Logger.info("Starting NetCDF Agent")
 
-    Agent.start_link(
-      fn ->
-        %{
-          speed: speed,
-          direction: direction,
-          interpolated_time: interpolated_time_t,
-          original_indices: original_indices,
-          p_values: p_values,
-          epoch: start_mjd,
-          lat: lat_t,
-          lon: lon_t
-        }
-      end,
-      name: __MODULE__
-    )
+        Agent.start_link(
+          fn ->
+            %{
+              speed: speed,
+              direction: direction,
+              interpolated_time: interpolated_time_t,
+              original_indices: original_indices,
+              p_values: p_values,
+              epoch: start_mjd,
+              lat: lat_t,
+              lon: lon_t
+            }
+          end,
+          name: __MODULE__
+        )
 
       _ ->
         Logger.info("NetCDF file not found. Skipping Agent.")
