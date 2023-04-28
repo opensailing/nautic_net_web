@@ -1,10 +1,11 @@
-# fly.toml file generated for nautic-net-web-dev on 2023-03-30T08:51:06-04:00
+# fly.toml app configuration file generated for nautic-net-web-dev on 2023-04-28T10:37:41-04:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
 app = "nautic-net-web-dev"
-kill_signal = "SIGTERM"
-kill_timeout = 5
 primary_region = "bos"
-processes = []
+kill_signal = "SIGTERM"
 
 [deploy]
   release_command = "/app/bin/migrate"
@@ -13,31 +14,12 @@ processes = []
   PHX_HOST = "nautic-net-web-dev.fly.dev"
   PORT = "8080"
 
-[experimental]
-  auto_rollback = true
-
-[[services]]
-  http_checks = []
+[http_service]
   internal_port = 8080
-  processes = ["app"]
-  protocol = "tcp"
-  script_checks = []
-  [services.concurrency]
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  [http_service.concurrency]
+    type = "connections"
     hard_limit = 1000
     soft_limit = 1000
-    type = "connections"
-
-  [[services.ports]]
-    force_https = true
-    handlers = ["http"]
-    port = 80
-
-  [[services.ports]]
-    handlers = ["tls", "http"]
-    port = 443
-
-  [[services.tcp_checks]]
-    grace_period = "1s"
-    interval = "15s"
-    restart_limit = 0
-    timeout = "2s"
