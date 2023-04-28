@@ -21,6 +21,8 @@ defmodule NauticNetWeb.Router do
   scope "/", NauticNetWeb do
     pipe_through :browser
 
+    get "/home", PageController, :home
+
     live "/", MapLive
   end
 
