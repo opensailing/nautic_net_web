@@ -30,7 +30,7 @@ docker run -it [container-id] bash
 
 ## Deploying to Fly
 
-```
+```sh
 # Configuration
 WEB_APP=nautic-net-web-dev
 DB_APP=nautic-net-web-db-dev
