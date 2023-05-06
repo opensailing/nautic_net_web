@@ -78,7 +78,6 @@ defmodule NauticNet.MixProject do
       {:protobuf, "~> 0.10.0"},
       {:rustler, ">= 0.0.0", optional: true},
 
-
       # Timex
       {:timex, "~> 3.7.9"}
     ]
