@@ -65,6 +65,7 @@ defmodule NauticNet.MixProject do
 
       # Development
       {:live_inspect, "~> 0.2"},
+      {:sobelow, "~> 0.12", only: [:dev, :test], runtime: false},
 
       # NauticNet
       {:nautic_net_protobuf, github: "DockYard/nautic_net_protobuf"},
