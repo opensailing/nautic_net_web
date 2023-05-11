@@ -10,33 +10,37 @@ defmodule NauticNetWeb.MapLive do
 
   require Logger
 
+  @hingham_bounding_box %{
+    "min_lat" => 42.1666,
+    "max_lat" => 42.4093,
+    "min_lon" => -71.0473,
+    "max_lon" => -70.8557
+  }
+
   def mount(_params, _session, socket) do
     if connected?(socket), do: PubSub.subscribe(NauticNet.PubSub, "leaflet")
 
-    {now, us} = DateTime.utc_now() |> DateTime.to_gregorian_seconds()
-    now = now + us / 1_000_000
-
-    min_lat = 42.1666
-    max_lat = 42.4093
-    min_lon = -71.0473
-    max_lon = -70.8557
-
     socket =
       socket
-      |> assign(:timezone, "America/New_York")
-      |> assign(:animate_time, false)
-      |> assign(:show_track, true)
-      |> assign(:last_current_event_sent_at, now)
-      |> assign(:bounding_box, %{
-        "min_lat" => min_lat,
-        "min_lon" => min_lon,
-        "max_lat" => max_lat,
-        "max_lon" => max_lon
-      })
-      |> assign(:last_current_event_index, nil)
-      |> assign(:is_live, false)
-      |> assign_dates()
+      # UI toggles
+      |> assign(:tracks_visible?, true)
+      |> assign(:water_visible?, false)
+      |> assign(:is_live?, false)
       |> assign(:data_sources_modal_visible?, false)
+
+      # Water currents
+      |> assign(:last_water_event_sent_at, now_ms())
+      |> assign(:last_water_event_index, nil)
+
+      # Map
+      |> assign(:bounding_box, @hingham_bounding_box)
+      |> assign(:zoom_level, 15)
+
+      # Timeline
+      |> assign(:timezone, "America/New_York")
+      |> assign_dates()
+
+      # Selected boat
       # |> assign_coordinates(Coordinates.get_coordinates("trip-01.csv"))
       |> assign_selected_boat_coordinates()
 
@@ -78,97 +82,23 @@ defmodule NauticNetWeb.MapLive do
         %{"bounds" => bounding_box, "zoom_level" => zoom_level},
         socket
       ) do
-    handle_event(
-      "set_position",
-      %{"zoom_level" => zoom_level, "viewport_change" => true},
-      assign(socket, :bounding_box, bounding_box)
-    )
+    {:noreply,
+     socket
+     |> assign(:bounding_box, bounding_box)
+     |> set_position(%{"zoom_level" => zoom_level, "viewport_change" => true})}
   end
 
-  def handle_event("set_position", event_data, %{assigns: assigns} = socket) do
-    {throttle, new_position} =
-      case event_data["position"] do
-        nil ->
-          {false, assigns.current_position}
-
-        pos ->
-          {true, String.to_integer(pos)}
-      end
-
-    viewport_change = event_data["viewport_change"] == true
-
-    zoom_level = event_data["zoom_level"] || 15
-
-    new_coordinates = Enum.at(assigns.coordinates, new_position)
-    Animation.set_marker_position(new_position)
-
-    # epoch for fixed dataset is from 59898.0 to 59904.0
-    # 10751 is the max value for position
-
-    {now, us} = DateTime.utc_now() |> DateTime.to_gregorian_seconds()
-    now = now + us / 1_000_000
-    diff = now - assigns.last_current_event_sent_at
-
-    {time, _new_lat, _new_lon} = new_coordinates
-    {t0, _, _} = Enum.at(assigns.coordinates, 0)
-
-    milliseconds_diff = DateTime.diff(time, t0, :millisecond)
-    time = NauticNet.NetCDF.epoch() + milliseconds_diff / (24 * :timer.hours(1))
-
-    index = NauticNet.NetCDF.get_geodata_time_index(time)
-
-    {last_current_event_index, last_current_event_sent_at, current_data} =
-      if (index != assigns.last_current_event_index or viewport_change) and
-           ((throttle and diff > 1 / 30) or not throttle) do
-        %{
-          "min_lat" => min_lat,
-          "min_lon" => min_lon,
-          "max_lat" => max_lat,
-          "max_lon" => max_lon
-        } = assigns.bounding_box
-
-        data =
-          index
-          |> NauticNet.NetCDF.get_geodata(min_lat, max_lat, min_lon, max_lon, zoom_level)
-          |> Base.encode64()
-
-        {index, now, data}
-      else
-        {assigns.last_current_event_index, assigns.last_current_event_sent_at, nil}
-      end
-
-    data_sources =
-      Playback.fill_latest_samples(
-        socket.assigns.selected_boat,
-        current_datetime(new_coordinates),
-        socket.assigns.data_sources
-      )
-
-    socket =
-      socket
-      |> assign(:current_position, new_position)
-      |> assign(:current_coordinates, new_coordinates)
-      |> assign(:last_current_event_sent_at, last_current_event_sent_at)
-      |> assign(:last_current_event_index, last_current_event_index)
-      |> assign(:data_sources, data_sources)
-
-    socket =
-      if current_data do
-        push_event(socket, "add_current_markers", %{current_data: current_data})
-      else
-        socket
-      end
-
-    {:noreply, socket}
+  def handle_event("set_position", params, socket) do
+    {:noreply, set_position(socket, params)}
   end
 
   def handle_event("clear", _, socket), do: {:noreply, push_event(socket, "clear_polyline", %{})}
 
-  def handle_event("toggle_track", _, %{assigns: %{show_track: value}} = socket) do
+  def handle_event("toggle_track", _, %{assigns: %{tracks_visible?: value}} = socket) do
     {:noreply,
      socket
-     |> assign(:show_track, !value)
-     |> push_event("toggle_track", %{value: !value})}
+     |> assign(:tracks_visible?, not value)
+     |> push_event("toggle_track", %{value: not value})}
   end
 
   def handle_event("update_range", %{"min" => min, "max" => max}, socket) do
@@ -198,16 +128,33 @@ defmodule NauticNetWeb.MapLive do
   end
 
   def handle_event("is_live_changed", %{"is_live" => is_live_param}, socket) do
-    is_live = is_live_param == "true"
+    is_live? = is_live_param == "true"
 
     {
       :noreply,
       socket
-      |> assign(:is_live, is_live)
+      |> assign(:is_live?, is_live?)
       # RangeSlider state must be updated via JS hook because it has phx-update="ignore"
-      |> push_event("set_enabled", %{id: "range", enabled: not is_live})
+      |> push_event("set_enabled", %{id: "range", enabled: not is_live?})
       # TODO: More things
     }
+  end
+
+  def handle_event("water_visible_changed", %{"water_visible" => water_visible_param}, socket) do
+    socket =
+      case water_visible_param do
+        "true" ->
+          socket
+          |> assign(:water_visible?, true)
+          |> set_position(%{"viewport_change" => true})
+
+        _false ->
+          socket
+          |> assign(:water_visible?, false)
+          |> push_event("clear_water_markers", %{})
+      end
+
+    {:noreply, socket}
   end
 
   def handle_event("select_data_sources", params, socket) do
@@ -232,6 +179,79 @@ defmodule NauticNetWeb.MapLive do
 
   def handle_info({event, latitude, longitude}, socket) do
     {:noreply, push_event(socket, event, %{latitude: latitude, longitude: longitude})}
+  end
+
+  defp set_position(%{assigns: assigns} = socket, params) do
+    {throttle, new_position} =
+      case params["position"] do
+        nil ->
+          {false, assigns.current_position}
+
+        pos ->
+          {true, String.to_integer(pos)}
+      end
+
+    viewport_change? = params["viewport_change"] == true
+    zoom_level = params["zoom_level"] || assigns.zoom_level
+
+    new_coordinates = Enum.at(assigns.coordinates, new_position)
+    Animation.set_marker_position(new_position)
+
+    # epoch for fixed dataset is from 59898.0 to 59904.0
+    # 10751 is the max value for position
+
+    now = now_ms()
+    diff_ms = now - assigns.last_water_event_sent_at
+
+    {time, _new_lat, _new_lon} = new_coordinates
+    {t0, _, _} = Enum.at(assigns.coordinates, 0)
+
+    milliseconds_diff = DateTime.diff(time, t0, :millisecond)
+    time = NauticNet.NetCDF.epoch() + milliseconds_diff / (24 * :timer.hours(1))
+
+    index = NauticNet.NetCDF.get_geodata_time_index(time)
+
+    {last_water_event_index, last_water_event_sent_at, water_data} =
+      if (index != assigns.last_water_event_index or viewport_change?) and
+           ((throttle and diff_ms > 33) or not throttle) and assigns.water_visible? do
+        %{
+          "min_lat" => min_lat,
+          "min_lon" => min_lon,
+          "max_lat" => max_lat,
+          "max_lon" => max_lon
+        } = assigns.bounding_box
+
+        data =
+          index
+          |> NauticNet.NetCDF.get_geodata(min_lat, max_lat, min_lon, max_lon, zoom_level)
+          |> Base.encode64()
+
+        {index, now, data}
+      else
+        {assigns.last_water_event_index, assigns.last_water_event_sent_at, nil}
+      end
+
+    data_sources =
+      Playback.fill_latest_samples(
+        socket.assigns.selected_boat,
+        current_datetime(new_coordinates),
+        socket.assigns.data_sources
+      )
+
+    socket =
+      socket
+      |> assign(:current_position, new_position)
+      |> assign(:current_coordinates, new_coordinates)
+      |> assign(:last_water_event_sent_at, last_water_event_sent_at)
+      |> assign(:last_water_event_index, last_water_event_index)
+      |> assign(:zoom_level, zoom_level)
+      |> assign(:data_sources, data_sources)
+
+    if water_data do
+      push_event(socket, "add_water_markers", %{water_data: water_data})
+    else
+      socket
+    end
   end
 
   defp print_coordinates({utc_datetime, latitude, longitude}, timezone) do
@@ -320,10 +340,10 @@ defmodule NauticNetWeb.MapLive do
     end
   end
 
-  attr :label, :string, required: true
-  attr :sample, :map, required: true
-  attr :field, :atom, required: true, values: [:angle_rad, :depth_m, :speed_m_s]
-  attr :unit, :atom, required: true, values: [:deg, :kn, :ft]
+  attr(:label, :string, required: true)
+  attr(:sample, :map, required: true)
+  attr(:field, :atom, required: true, values: [:angle_rad, :depth_m, :speed_m_s])
+  attr(:unit, :atom, required: true, values: [:deg, :kn, :ft])
 
   defp sample_view(assigns) do
     display_value =
@@ -375,4 +395,8 @@ defmodule NauticNetWeb.MapLive do
 
   defp convert(value, :m, :m), do: value * 1.0
   defp convert(value, :m, :ft), do: value * 3.28084
+
+  defp now_ms do
+    System.monotonic_time(:millisecond)
+  end
 end

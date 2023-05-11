@@ -10,12 +10,21 @@
         value={@selected_date}
         options={date_options(@dates)}
         errors={[]}
-        disabled={@is_live}
+        disabled={@is_live?}
       />
     </form>
 
     <form phx-change="is_live_changed">
-      <.input type="checkbox" id="is_live" name="is_live" checked={@is_live} label="Live" />
+      <.input type="checkbox" id="is_live" name="is_live" checked={@is_live?} label="Live" />
+    </form>
+    <form phx-change="water_visible_changed">
+      <.input
+        type="checkbox"
+        id="water_visible"
+        name="water_visible"
+        checked={@water_visible?}
+        label="Water Currents"
+      />
     </form>
   </div>
 
@@ -43,13 +52,13 @@
     value={@current_position}
     min={@current_min_position}
     max={@current_max_position}
-    disabled={@is_live}
+    disabled={@is_live?}
   />
 </form>
 
 <div class="my-4">
-  <.button phx-click="toggle_track"><%= if @show_track, do: "Hide", else: "Show" %></.button>
-  <.button :if={@show_track} phx-click="clear">Clear</.button>
+  <.button phx-click="toggle_track"><%= if @tracks_visible?, do: "Hide", else: "Show" %></.button>
+  <.button :if={@tracks_visible?} phx-click="clear">Clear</.button>
   <.button phx-click={
     Phoenix.LiveView.JS.dispatch("animateTime", detail: %{play: true}, to: "#map")
   }>

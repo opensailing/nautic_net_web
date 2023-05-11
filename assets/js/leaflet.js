@@ -198,7 +198,7 @@ export function interactiveMap(hook) {
     }
   });
 
-  window.addEventListener(`phx:add_current_markers`, (e) => {
+  window.addEventListener(`phx:add_water_markers`, (e) => {
     const markerBaseColor = interpolateColors(0);
 
     const canvasRenderer = L.canvas({ padding: 0 });
@@ -214,7 +214,7 @@ export function interactiveMap(hook) {
       renderer: canvasRenderer,
     };
 
-    const binData = e.detail.current_data;
+    const binData = e.detail.water_data;
     const deserialized = GeoData.deserializeBinary(binData);
     const data = deserialized.array[0];
 
@@ -271,5 +271,10 @@ export function interactiveMap(hook) {
     map.addLayer(layer);
     hook.previousLayer && map.removeLayer(hook.previousLayer);
     hook.previousLayer = layer;
+  });
+
+  window.addEventListener(`phx:clear_water_markers`, (e) => {
+    hook.previousLayer && map.removeLayer(hook.previousLayer);
+    hook.previousLayer = undefined;
   });
 }
