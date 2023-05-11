@@ -53,7 +53,7 @@ defmodule NauticNet.Playback do
   def all_data_sources do
     Enum.map(Sample.types(), fn type ->
       %DataSource{
-        id: to_string(type),
+        id: to_string(type.type),
         name: type.name,
         type: type.type
       }
@@ -72,7 +72,7 @@ defmodule NauticNet.Playback do
       Sample
       |> where([s], s.boat_id == ^boat.id)
       |> where_date(date, timezone)
-      |> select([s], %{measurement: s.measurement, reference: s.reference, sensor_id: s.sensor_id})
+      |> select([s], %{type: s.type, sensor_id: s.sensor_id})
       |> distinct(true)
       |> Repo.all()
 
@@ -93,8 +93,7 @@ defmodule NauticNet.Playback do
     for data_source <- all_data_sources() do
       sensors =
         for ksm <- known_sensor_measurements,
-            ksm.measurement == data_source.measurement and
-              ksm.reference == data_source.reference,
+            ksm.type == data_source.type,
             do: Map.fetch!(sensor_lookup, ksm.sensor_id)
 
       selected_sensor = List.first(sensors)
