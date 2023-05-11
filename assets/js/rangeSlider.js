@@ -1,5 +1,4 @@
-import noUiSlider from 'nouislider';
-
+import noUiSlider from "nouislider";
 
 export function rangeSlider(hook) {
   let divElement = hook.el;
@@ -10,20 +9,31 @@ export function rangeSlider(hook) {
     connect: true,
     behaviour: "tap-drag",
     range: {
-      'min': 0,
-      'max': parseFloat(max)
-    }
+      min: 0,
+      max: parseFloat(max),
+    },
   });
 
-  divElement.noUiSlider.on('update', function ([min, max], _handle) {
-    hook.pushEvent('update_range', { min: min, max: max });
+  divElement.noUiSlider.on("update", function ([min, max], _handle) {
+    hook.pushEvent("update_range", { min: min, max: max });
   });
 
-  hook.handleEvent('set_enabled', ({ enabled }) => {
+  hook.handleEvent("set_enabled", ({ enabled }) => {
     if (enabled) {
-      divElement.removeAttribute('disabled');
+      divElement.removeAttribute("disabled");
     } else {
-      divElement.setAttribute('disabled', true);
+      divElement.setAttribute("disabled", true);
     }
+  });
+
+  hook.handleEvent("update_max", ({ max }) => {
+    divElement.noUiSlider.updateOptions({
+      range: {
+        min: 0,
+        max: max,
+      },
+    });
+
+    divElement.noUiSlider.set([0, max]);
   });
 }

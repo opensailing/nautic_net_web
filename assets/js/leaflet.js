@@ -130,7 +130,7 @@ export function interactiveMap(hook) {
     trackCoordinates = coordinates;
   });
 
-  window.addEventListener(`phx:marker_coordinates`, (e) => {
+  window.addEventListener(`phx:marker_coordinate`, (e) => {
     const {
       detail: { latitude, longitude },
     } = e;

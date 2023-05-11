@@ -2,7 +2,6 @@ defmodule NauticNetWeb.MapLive do
   use NauticNetWeb, :live_view
 
   alias Phoenix.PubSub
-  alias NauticNet.Animation
   alias NauticNet.Data.Sample
   alias NauticNet.Coordinates
   alias NauticNet.Playback
@@ -59,19 +58,19 @@ defmodule NauticNetWeb.MapLive do
     assign_coordinates(socket, coordinates)
   end
 
-  defp assign_coordinates(socket, [initial_coordinates | _] = coordinates) do
+  defp assign_coordinates(socket, [initial_coordinate | _] = coordinates) do
     map_center = Coordinates.get_center(coordinates)
 
-    Animation.set_track_coordinates(coordinates)
-    Animation.set_map_view(map_center)
-    Animation.set_marker_coordinates(initial_coordinates)
-
     socket
-    |> assign(:current_coordinates, initial_coordinates)
+    |> set_track_coordinates(coordinates)
+    |> set_map_view(map_center)
+    |> set_marker_coordinate(initial_coordinate)
+    |> assign(:current_coordinate, initial_coordinate)
     |> assign(:coordinates, coordinates)
     |> assign(:map_center, map_center)
     |> assign(:min_position, 0)
     |> assign(:max_position, Enum.count(coordinates) - 1)
+    |> push_event("update_max", %{id: "range", max: Enum.count(coordinates) - 1})
     |> assign(:current_min_position, 0)
     |> assign(:current_max_position, Enum.count(coordinates) - 1)
     |> assign(:current_position, 0)
@@ -105,11 +104,10 @@ defmodule NauticNetWeb.MapLive do
     {min_value, _} = Integer.parse(min)
     {max_value, _} = Integer.parse(max)
 
-    Animation.set_marker_position(min_value)
-
     {:noreply,
      socket
-     |> assign(:current_coordinates, Enum.at(socket.assigns.coordinates, min_value))
+     |> set_marker_position(min_value)
+     |> assign(:current_coordinate, Enum.at(socket.assigns.coordinates, min_value))
      |> assign(:current_position, min_value)
      |> assign(:current_min_position, min_value)
      |> assign(:current_max_position, max_value)}
@@ -169,18 +167,6 @@ defmodule NauticNetWeb.MapLive do
     {:noreply, assign(socket, :data_sources_modal_visible?, false)}
   end
 
-  def handle_info({"track_coordinates", coordinates}, socket) do
-    {:noreply, push_event(socket, "track_coordinates", %{coordinates: coordinates})}
-  end
-
-  def handle_info({"marker_position", position}, socket) do
-    {:noreply, push_event(socket, "marker_position", %{position: position})}
-  end
-
-  def handle_info({event, latitude, longitude}, socket) do
-    {:noreply, push_event(socket, event, %{latitude: latitude, longitude: longitude})}
-  end
-
   defp set_position(%{assigns: assigns} = socket, params) do
     {throttle, new_position} =
       case params["position"] do
@@ -195,7 +181,6 @@ defmodule NauticNetWeb.MapLive do
     zoom_level = params["zoom_level"] || assigns.zoom_level
 
     new_coordinates = Enum.at(assigns.coordinates, new_position)
-    Animation.set_marker_position(new_position)
 
     # epoch for fixed dataset is from 59898.0 to 59904.0
     # 10751 is the max value for position
@@ -240,8 +225,9 @@ defmodule NauticNetWeb.MapLive do
 
     socket =
       socket
+      |> set_marker_position(new_position)
       |> assign(:current_position, new_position)
-      |> assign(:current_coordinates, new_coordinates)
+      |> assign(:current_coordinate, new_coordinates)
       |> assign(:last_water_event_sent_at, last_water_event_sent_at)
       |> assign(:last_water_event_index, last_water_event_index)
       |> assign(:zoom_level, zoom_level)
@@ -254,7 +240,7 @@ defmodule NauticNetWeb.MapLive do
     end
   end
 
-  defp print_coordinates({utc_datetime, latitude, longitude}, timezone) do
+  defp print_coordinate({utc_datetime, latitude, longitude}, timezone) do
     local_datetime =
       utc_datetime
       |> Timex.to_datetime(timezone)
@@ -396,7 +382,24 @@ defmodule NauticNetWeb.MapLive do
   defp convert(value, :m, :m), do: value * 1.0
   defp convert(value, :m, :ft), do: value * 3.28084
 
-  defp now_ms do
-    System.monotonic_time(:millisecond)
+  defp now_ms, do: System.monotonic_time(:millisecond)
+
+  defp set_map_view(socket, {latitude, longitude}) do
+    push_event(socket, "map_view", %{latitude: latitude, longitude: longitude})
+  end
+
+  defp set_marker_coordinate(socket, {_date, latitude, longitude}) do
+    push_event(socket, "marker_coordinate", %{latitude: latitude, longitude: longitude})
+  end
+
+  defp set_marker_position(socket, position) do
+    push_event(socket, "marker_position", %{position: position})
+  end
+
+  defp set_track_coordinates(socket, coordinates) do
+    dateless_coordinates =
+      Enum.map(coordinates, fn {_date, latitude, longitude} -> [latitude, longitude] end)
+
+    push_event(socket, "track_coordinates", %{coordinates: dateless_coordinates})
   end
 end
