@@ -58,3 +58,5 @@ jobs:
       run:  mix compile --warnings-as-errors
     - name: Format Code
       run:  mix format --check-formatted
+    - name: Run security-focused static analysis (ignoring HTTPS until automatic deployment)
+      run:  mix sobelow -i Config.HTTPS
