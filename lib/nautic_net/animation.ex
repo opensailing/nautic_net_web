@@ -31,18 +31,4 @@ defmodule NauticNet.Animation do
 
     send(self(), {"track_coordinates", dateless_coordinates})
   end
-
-  def diagonal({lat, lng} \\ @initial_coordinates) do
-    updated_coordinates = {lat + @step_increment, lng + @step_increment}
-
-    PubSub.broadcast(
-      NauticNet.PubSub,
-      "leaflet",
-      {"marker_coordinates", lat + @step_increment, lng + @step_increment}
-    )
-
-    Process.sleep(@timeout)
-
-    diagonal(updated_coordinates)
-  end
 end
