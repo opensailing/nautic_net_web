@@ -15,7 +15,8 @@ defmodule NauticNet.MixProject do
       # this in the dev environment
       consolidate_protocols: Mix.env() != :dev,
       dialyzer: [
-        remove_defaults: [:unknown]
+        remove_defaults: [:unknown],
+        plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
       ]
     ]
   end
