@@ -103,23 +103,29 @@ defmodule NauticNet.Playback do
   end
 
   @doc """
-  Returns a list of coordinate tuples for display in MapLive.
+  Returns a list of coordinate maps for display in MapLive.
 
-      [{%DateTime{}, latitude, longitude}, ...]
-
+  Keys: :boat_id, :time, :latitude, :longitude
   """
-  def list_coordinates(%Boat{} = boat, %Date{} = date, timezone, data_sources) do
+  def list_coordinates(boats, %Date{} = date, timezone, data_sources) do
+    boat_ids = Enum.map(boats, & &1.id)
     position_data_source = fetch_data_source!(data_sources, "position")
 
     Sample
     |> where_data_source(position_data_source)
-    |> where([s], s.boat_id == ^boat.id)
+    |> where([s], s.boat_id in ^boat_ids)
     |> where_date(date, timezone)
     |> order_by([s], s.time)
-    |> select([s], {s.time, s.position})
+    |> select([s], {s.boat_id, s.time, s.position})
     |> Repo.all()
-    |> Enum.map(fn {utc_datetime, %Geo.Point{coordinates: {lon, lat}}} ->
-      {utc_datetime, lat, lon}
+    # Note: The ordering of PostGIS ordinates is the opposite of what you expect!
+    |> Enum.map(fn {boat_id, utc_datetime, %Geo.Point{coordinates: {lon, lat}}} ->
+      %{
+        boat_id: boat_id,
+        time: utc_datetime,
+        latitude: lat,
+        longitude: lon
+      }
     end)
   end
 
@@ -177,5 +183,40 @@ defmodule NauticNet.Playback do
     sample_query
     |> where([s], s.sensor_id == ^data_source.selected_sensor.id)
     |> where([s], s.type == ^data_source.type)
+  end
+
+  @doc """
+  Returns the range of DateTimes over which samples exist on a given date.
+  """
+  def get_sample_range_on(%Date{} = date, timezone) do
+    first_sample_at_utc =
+      Sample
+      |> where_date(date, timezone)
+      |> order_by([s], asc: s.time)
+      |> limit(1)
+      |> select([s], s.time)
+      |> Repo.one()
+
+    last_sample_at_utc =
+      Sample
+      |> where_date(date, timezone)
+      |> order_by([s], desc: s.time)
+      |> limit(1)
+      |> select([s], s.time)
+      |> Repo.one()
+
+    if first_sample_at_utc && last_sample_at_utc do
+      # Convert from UTC to local
+      {
+        Timex.to_datetime(first_sample_at_utc, timezone),
+        Timex.to_datetime(last_sample_at_utc, timezone)
+      }
+    else
+      # Generate local start/end of day if there are no samples
+      {
+        date |> Timex.to_datetime(timezone) |> Timex.beginning_of_day(),
+        date |> Timex.to_datetime(timezone) |> Timex.end_of_day()
+      }
+    end
   end
 end

@@ -21,12 +21,12 @@ defmodule NauticNet.Coordinates do
   def get_center(coordinates) do
     {min_latitude, max_latitude} =
       coordinates
-      |> Enum.map(fn {_, latitude, _} -> latitude end)
+      |> Enum.map(& &1.latitude)
       |> Enum.min_max()
 
     {min_longitude, max_longitude} =
       coordinates
-      |> Enum.map(fn {_, _, longitude} -> longitude end)
+      |> Enum.map(& &1.longitude)
       |> Enum.min_max()
 
     {(min_latitude + max_latitude) / 2, (min_longitude + max_longitude) / 2}

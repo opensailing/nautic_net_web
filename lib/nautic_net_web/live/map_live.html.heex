@@ -1,4 +1,4 @@
-<div id="map" phx-hook="Leaflet" phx-update="ignore" />
+<div id="map" phx-hook="LeafletHook" phx-update="ignore" />
 
 <div class="flex items-center justify-between my-4">
   <div class="flex items-center gap-4">
@@ -29,12 +29,20 @@
   </div>
 
   <div>
-    <%= length(@boats) %> <%= if length(@boats) == 1, do: "boat", else: "boats" %>
+    <%= length(@boat_views) %> <%= if length(@boat_views) == 1, do: "boat", else: "boats" %>
   </div>
 </div>
 
 <div class="my-6 px-4">
-  <div id="range" phx-hook="RangeSlider" phx-update="ignore" data-max={@max_position} />
+  <div
+    id="range-slider"
+    phx-hook="RangeSliderHook"
+    phx-update="ignore"
+    data-min={DateTime.to_unix(@first_sample_at)}
+    data-max={DateTime.to_unix(@last_sample_at)}
+  />
+  <div><%= @range_start_at %></div>
+  <div><%= @range_end_at %></div>
 </div>
 
 <form
@@ -43,18 +51,43 @@
   phx-throttle="500"
   class="my-4"
 >
-  <label for="position"><%= print_coordinate(@current_coordinate, @timezone) %></label>
   <input
     style="width:100%"
     type="range"
     id="position"
     name="position"
-    value={@current_position}
-    min={@current_min_position}
-    max={@current_max_position}
+    value={DateTime.to_unix(@inspect_at)}
+    min={DateTime.to_unix(@range_start_at)}
+    max={DateTime.to_unix(@range_end_at)}
     disabled={@is_live?}
   />
+
+  <div><%= @inspect_at %></div>
 </form>
+
+<table>
+  <%= for boat_view <- @boat_views do %>
+    <tr>
+      <td>
+        <input
+          id={"boat-toggle-#{boat_view.boat.id}"}
+          type="checkbox"
+          checked={boat_view.visible?}
+          phx-click="set_boat_visible"
+          phx-value-boat-id={boat_view.boat.id}
+        />
+      </td>
+      <td>
+        <div class="w-3 h-3" style={"background-color: #{boat_view.track_color}"} />
+      </td>
+      <td>
+        <label for={"boat-toggle-#{boat_view.boat.id}"} class="cursor-pointer">
+          <%= boat_view.boat.id %>
+        </label>
+      </td>
+    </tr>
+  <% end %>
+</table>
 
 <div class="my-4">
   <.button phx-click="toggle_track"><%= if @tracks_visible?, do: "Hide", else: "Show" %></.button>
@@ -80,21 +113,21 @@
         type="select"
         id="boat_id"
         name="boat_id"
-        value={@selected_boat.id}
-        options={boat_options(@boats)}
+        value={@selected_boat_view && @selected_boat_view.boat.id}
+        options={boat_options(@boat_views)}
         errors={[]}
       />
     </form>
 
     <.button phx-click="show_data_sources_modal">
-      <%= sensor_count(@data_sources) %> sensors
+      <%= sensor_count(data_sources(@selected_boat_view)) %> sensors
     </.button>
 
     <%= if @data_sources_modal_visible? do %>
-      <.modal id="data_sources_modal" show={true} on_cancel={JS.push("data_sources_modal_closed")}>
+      <.modal id="data_sources_modal" show={true} on_cancel={JS.push("hide_data_sources_modal")}>
         <:title>Select Sensors</:title>
         <form phx-change="select_data_sources">
-          <%= for data_source <- @data_sources do %>
+          <%= for data_source <- data_sources(@selected_boat_view) do %>
             <fieldset class="my-3">
               <label for={data_source.id} class="font-semibold mb-1">
                 <%= data_source.name %>
@@ -118,37 +151,37 @@
   <div class="grid grid-cols-2 gap-4">
     <.sample_view
       label="True Heading"
-      sample={get_latest_sample(@data_sources, "true_heading")}
+      sample={get_latest_sample(data_sources(@selected_boat_view), "true_heading")}
       field={:angle_rad}
       unit={:deg}
     />
     <.sample_view
       label="COG"
-      sample={get_latest_sample(@data_sources, "velocity_over_ground")}
+      sample={get_latest_sample(data_sources(@selected_boat_view), "velocity_over_ground")}
       field={:angle_rad}
       unit={:deg}
     />
     <.sample_view
       label="Speed Thru Water"
-      sample={get_latest_sample(@data_sources, "speed_through_water")}
+      sample={get_latest_sample(data_sources(@selected_boat_view), "speed_through_water")}
       field={:speed_m_s}
       unit={:kn}
     />
     <.sample_view
       label="SOG"
-      sample={get_latest_sample(@data_sources, "velocity_over_ground")}
+      sample={get_latest_sample(data_sources(@selected_boat_view), "velocity_over_ground")}
       field={:speed_m_s}
       unit={:kn}
     />
     <.sample_view
       label="Apparent Wind"
-      sample={get_latest_sample(@data_sources, "apparent_wind")}
+      sample={get_latest_sample(data_sources(@selected_boat_view), "apparent_wind")}
       field={:angle_rad}
       unit={:deg}
     />
     <.sample_view
       label="Depth"
-      sample={get_latest_sample(@data_sources, "depth")}
+      sample={get_latest_sample(data_sources(@selected_boat_view), "depth")}
       field={:depth_m}
       unit={:ft}
     />
@@ -157,4 +190,4 @@
   <div>column 3</div>
 </div>
 
-<.live_inspect term={@data_sources} />
+<.live_inspect term={@selected_boat_view} />
