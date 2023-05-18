@@ -105,17 +105,17 @@ class BoatView {
   }
 
   setTime(startTime, endTime, inspectTime) {
-    const newCoords = this.trackCoordinates
-      .filter((c) => c.time >= startTime && c.time <= inspectTime)
-      .map((c) => [c.lat, c.lng]);
+    const newCoords = this.trackCoordinates.filter(
+      (c) => c.time >= startTime && c.time <= inspectTime
+    );
     const lastCoord = newCoords[newCoords.length - 1];
 
-    console.log("settime");
-
-    this.polyline.setLatLngs(newCoords);
+    this.polyline.setLatLngs(newCoords.map((c) => [c.lat, c.lng]));
 
     if (lastCoord) {
-      this.marker.setLatLng(lastCoord);
+      this.marker.setLatLng([lastCoord.lat, lastCoord.lng]);
+
+      // TODO: Rotate marker based on lastCoord.heading_rad (CustomIconMarker)
     }
   }
 

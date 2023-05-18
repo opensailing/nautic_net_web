@@ -107,26 +107,95 @@ defmodule NauticNet.Playback do
 
   Keys: :boat_id, :time, :latitude, :longitude
   """
-  def list_coordinates(boats, %Date{} = date, timezone, data_sources) do
-    boat_ids = Enum.map(boats, & &1.id)
-    position_data_source = fetch_data_source!(data_sources, "position")
+  def list_coordinates(%Boat{} = boat, %Date{} = date, timezone, data_sources) do
+    positions =
+      Sample
+      |> where_data_source(fetch_data_source!(data_sources, "position"))
+      |> where([s], s.boat_id == ^boat.id)
+      |> where_date(date, timezone)
+      |> order_by([s], s.time)
+      |> select([s], {s.time, s.position})
+      |> Repo.all()
+      # Note: The ordering of PostGIS ordinates is the opposite of what you expect!
+      |> Enum.map(fn {utc_datetime, %Geo.Point{coordinates: {lon, lat}}} ->
+        %{
+          time: utc_datetime,
+          latitude: lat,
+          longitude: lon
+        }
+      end)
 
-    Sample
-    |> where_data_source(position_data_source)
-    |> where([s], s.boat_id in ^boat_ids)
-    |> where_date(date, timezone)
-    |> order_by([s], s.time)
-    |> select([s], {s.boat_id, s.time, s.position})
-    |> Repo.all()
-    # Note: The ordering of PostGIS ordinates is the opposite of what you expect!
-    |> Enum.map(fn {boat_id, utc_datetime, %Geo.Point{coordinates: {lon, lat}}} ->
-      %{
-        boat_id: boat_id,
-        time: utc_datetime,
-        latitude: lat,
-        longitude: lon
-      }
-    end)
+    headings =
+      Sample
+      |> where_data_source(fetch_data_source!(data_sources, "magnetic_heading"))
+      # Temporarily disabled - no true_heading samples in my dev DB yet
+      # |> where_data_source(fetch_data_source!(data_sources, "true_heading"))
+      |> where([s], s.boat_id == ^boat.id)
+      |> where_date(date, timezone)
+      |> order_by([s], s.time)
+      |> select([s], %{time: s.time, angle_rad: s.angle})
+      |> Repo.all()
+
+    merged_coordinates =
+      collate_closest_samples(positions, headings, fn
+        position, nil ->
+          # Need to specify some value...
+          Map.put(position, :true_heading, 0)
+
+        position, heading ->
+          Map.put(position, :true_heading, heading.angle_rad * 180 / :math.pi())
+      end)
+
+    merged_coordinates
+  end
+
+  # For every sample, look for the closest merge sample that has occurred BEFORE the main sample.
+  # Then, call the merger function to combine them. The resulting list of merged samples will be
+  # the same length as the input samples. Each list of samples must have a :time field, and be
+  # already ordered ascending by that time.
+  defp collate_closest_samples(samples, merge_samples, merger, acc \\ [])
+
+  # Base case - we're done!
+  defp collate_closest_samples([], _, _, acc), do: Enum.reverse(acc)
+
+  # No more merge samples remaining - pass `nil` argument to merger function
+  defp collate_closest_samples([sample | rest], [], merger, acc) do
+    merged = merger.(sample, nil)
+    collate_closest_samples(rest, [], merger, [merged | acc])
+  end
+
+  defp collate_closest_samples([sample | rest], [merge_sample], merger, acc) do
+    if DateTime.compare(merge_sample.time, sample.time) in [:lt, :eq] do
+      # Only use merge_sample if it's in the past
+      merged = merger.(sample, merge_sample)
+      collate_closest_samples(rest, [merge_sample], merger, [merged | acc])
+    else
+      # No more merge samples remaining :(
+      collate_closest_samples(rest, [], merger, acc)
+    end
+  end
+
+  defp collate_closest_samples(
+         [sample | rest] = samples,
+         [ms1, ms2 | ms_rest] = merge_samples,
+         merger,
+         acc
+       ) do
+    cond do
+      # ms1 is the latest sample before sample, so use it to merge
+      DateTime.compare(ms1.time, sample.time) in [:lt, :eq] and
+          DateTime.compare(ms2.time, sample.time) == :gt ->
+        merged = merger.(sample, ms1)
+        collate_closest_samples(rest, merge_samples, merger, [merged | acc])
+
+      # ms1 and ms2 are BOTH before sample, so pop ms1 off the queue
+      # DateTime.compare(ms1.time, sample.time) == :lt and
+      #     DateTime.compare(ms2.time, sample.time) in [:lt, :eq] ->
+      #   collate_closest_samples(samples, [ms2 | ms_rest], merger, acc)
+
+      :else ->
+        collate_closest_samples(samples, [ms2 | ms_rest], merger, acc)
+    end
   end
 
   def fill_latest_samples(boat, datetime, data_sources) do
