@@ -141,6 +141,13 @@ defmodule NauticNet.Data.Sample do
          angle: Protobuf.Convert.decode_unit(rover_data.heading, :ddeg, :rad)
        },
        %{
+         type: :true_heading,
+         angle:
+           rover_data.heading
+           |> Protobuf.Convert.decode_unit(:ddeg, :rad)
+           |> magnetic_heading_to_true_heading()
+       },
+       %{
          type: :heel,
          angle: Protobuf.Convert.decode_unit(rover_data.heel - 90, :ddeg, :rad)
        },
@@ -161,4 +168,15 @@ defmodule NauticNet.Data.Sample do
   def attrs_from_protobuf_sample(_), do: :error
 
   def types, do: @types
+
+  defp magnetic_heading_to_true_heading(mag_heading_rad) do
+    # TODO: Calculate magnetic declination based on lat/lon... currently hardcoded to Hingham, MA (14.21° W declination)
+    declination_deg = -14.21
+
+    # Apply correction, and wrap around
+    true_heading_rad = mag_heading_rad - deg2rad(declination_deg)
+    :math.fmod(true_heading_rad, :math.pi())
+  end
+
+  defp deg2rad(deg), do: deg * :math.pi() / 180
 end
