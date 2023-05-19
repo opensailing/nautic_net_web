@@ -70,6 +70,8 @@ defmodule NauticNet.MixProject do
       # Development
       {:live_inspect, "~> 0.2"},
       {:dialyxir, "~> 1.3", only: [:dev, :test], runtime: false},
+      {:sobelow, "~> 0.12", only: [:dev, :test], runtime: false},
+      {:mix_audit, "~> 2.0", only: [:dev, :test], runtime: false},
 
       # NauticNet
       {:nautic_net_protobuf, github: "DockYard/nautic_net_protobuf"},
