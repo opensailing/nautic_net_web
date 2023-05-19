@@ -83,17 +83,17 @@ defmodule NauticNet.NetCDF do
 
       Geodata.GeoData.encode(%Geodata.GeoData{
         currents:
-          render_data(
-            speed,
-            direction,
-            state.lat,
-            state.lon,
-            min_lat,
-            min_lon,
-            max_lat,
-            max_lon,
-            zoom_level
-          )
+          render_data(%{
+            speed: speed,
+            direction: direction,
+            lat: state.lat,
+            lon: state.lon,
+            min_lat: min_lat,
+            min_lon: min_lon,
+            max_lat: max_lat,
+            max_lon: max_lon,
+            zoom_lovel: zoom_level
+          })
       })
     end)
   end
@@ -237,24 +237,32 @@ defmodule NauticNet.NetCDF do
     Nx.select(p <= 0.5, x0, x1)
   end
 
-  defp render_data(speed, direction, lat, lon, min_lat, min_lon, max_lat, max_lon, zoom_level) do
+  defp render_data(data) do
     step =
       cond do
-        zoom_level >= 13.5 -> 1
-        zoom_level >= 13 -> 2
-        zoom_level >= 12 -> 4
-        zoom_level >= 11 -> 8
+        data.zoom_level >= 13.5 -> 1
+        data.zoom_level >= 13 -> 2
+        data.zoom_level >= 12 -> 4
+        data.zoom_level >= 11 -> 8
         true -> 10
       end
 
     speed
-    |> filter_bounding_box(direction, lat, lon, min_lat, min_lon, max_lat, max_lon)
+    |> filter_bounding_box(
+      data.direction,
+      data.lat,
+      data.lon,
+      data.min_lat,
+      data.min_lon,
+      data.max_lat,
+      data.max_lon
+    )
     |> Nx.to_flat_list()
     |> Enum.chunk_every(4)
     |> Enum.reject(fn [_, _, _, s] -> s == 0 end)
-    |> Enum.take_every(step)
-    |> Enum.map(fn [lon, lat, direction, speed] ->
-      %Geodata.Current{lon: lon, lat: lat, direction: direction, speed: speed}
+    |> Enum.take_every(data.step)
+    |> Enum.map(fn [data.lon, data.lat, data.direction, data.speed] ->
+      %Geodata.Current{lon: data.lon, lat: data.lat, direction: data.direction, speed: data.speed}
     end)
   end
 

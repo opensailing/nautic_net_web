@@ -86,14 +86,7 @@ defmodule NauticNetWeb.MapLive do
   end
 
   def handle_event("set_position", event_data, %{assigns: assigns} = socket) do
-    {throttle, new_position} =
-      case event_data["position"] do
-        nil ->
-          {false, assigns.current_position}
-
-        pos ->
-          {true, String.to_integer(pos)}
-      end
+    {throttle, new_position} = set_throttle_and_position(event_data, assigns)
 
     viewport_change = event_data["viewport_change"] == true
 
@@ -234,6 +227,17 @@ defmodule NauticNetWeb.MapLive do
     {:noreply, push_event(socket, event, %{latitude: latitude, longitude: longitude})}
   end
 
+  defp set_throttle_and_position(event_data, assigns) do
+    {throttle, new_position} =
+      case event_data["position"] do
+        nil ->
+          {false, assigns.current_position}
+
+        pos ->
+          {true, String.to_integer(pos)}
+      end
+  end
+
   defp print_coordinates({utc_datetime, latitude, longitude}, timezone) do
     local_datetime =
       utc_datetime
@@ -320,10 +324,10 @@ defmodule NauticNetWeb.MapLive do
     end
   end
 
-  attr :label, :string, required: true
-  attr :sample, :map, required: true
-  attr :field, :atom, required: true, values: [:angle_rad, :depth_m, :speed_m_s]
-  attr :unit, :atom, required: true, values: [:deg, :kn, :ft]
+  attr(:label, :string, required: true)
+  attr(:sample, :map, required: true)
+  attr(:field, :atom, required: true, values: [:angle_rad, :depth_m, :speed_m_s])
+  attr(:unit, :atom, required: true, values: [:deg, :kn, :ft])
 
   defp sample_view(assigns) do
     display_value =
