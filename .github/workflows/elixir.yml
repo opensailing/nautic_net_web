@@ -64,3 +64,5 @@ jobs:
       run:  mix deps.audit
     - name: Run security-focused static analysis (ignoring HTTPS until automatic deployment)
       run:  mix sobelow -i Config.HTTPS
+    - name: Run dialyzer
+      run:  mix dialyzer --format github

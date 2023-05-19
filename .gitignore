@@ -34,3 +34,7 @@ npm-debug.log
 
 .DS_Store
 /.envrc
+
+# dialyzer Persistent Lookup Table files
+/priv/plts/*.plt
+/priv/plts/*.plt.hash

@@ -13,7 +13,11 @@ defmodule NauticNet.MixProject do
 
       # Protocol consolidation causes the CodeReloader to be extremely slow, so let's disable
       # this in the dev environment
-      consolidate_protocols: Mix.env() != :dev
+      consolidate_protocols: Mix.env() != :dev,
+      dialyzer: [
+        remove_defaults: [:unknown],
+        plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
+      ]
     ]
   end
 
@@ -65,6 +69,7 @@ defmodule NauticNet.MixProject do
 
       # Development
       {:live_inspect, "~> 0.2"},
+      {:dialyxir, "~> 1.3", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.12", only: [:dev, :test], runtime: false},
       {:mix_audit, "~> 2.0", only: [:dev, :test], runtime: false},
 
