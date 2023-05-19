@@ -65,6 +65,7 @@ defmodule NauticNet.MixProject do
 
       # Development
       {:live_inspect, "~> 0.2"},
+      {:sobelow, "~> 0.12", only: [:dev, :test], runtime: false},
       {:mix_audit, "~> 2.0", only: [:dev, :test], runtime: false},
 
       # NauticNet
