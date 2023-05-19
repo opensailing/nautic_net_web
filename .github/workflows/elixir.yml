@@ -58,5 +58,7 @@ jobs:
       run:  mix compile --warnings-as-errors
     - name: Format Code
       run:  mix format --check-formatted
+    - name: Check for retired deps
+      run:  mix hex.audit
     - name: Scan for security vulnerabilities on deps
       run:  mix deps.audit
