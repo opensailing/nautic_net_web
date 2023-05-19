@@ -247,7 +247,7 @@ defmodule NauticNet.NetCDF do
         true -> 10
       end
 
-    speed
+    data.speed
     |> filter_bounding_box(
       data.direction,
       data.lat,
@@ -260,9 +260,9 @@ defmodule NauticNet.NetCDF do
     |> Nx.to_flat_list()
     |> Enum.chunk_every(4)
     |> Enum.reject(fn [_, _, _, s] -> s == 0 end)
-    |> Enum.take_every(data.step)
-    |> Enum.map(fn [data.lon, data.lat, data.direction, data.speed] ->
-      %Geodata.Current{lon: data.lon, lat: data.lat, direction: data.direction, speed: data.speed}
+    |> Enum.take_every(step)
+    |> Enum.map(fn [lon, lat, direction, speed] ->
+      %Geodata.Current{lon: lon, lat: lat, direction: direction, speed: speed}
     end)
   end
 

@@ -1,4 +1,5 @@
 defmodule NauticNet.Animation do
+  @moduledoc false
   alias Phoenix.PubSub
 
   @initial_coordinates {42.27, -70.997}

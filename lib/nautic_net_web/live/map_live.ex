@@ -228,14 +228,13 @@ defmodule NauticNetWeb.MapLive do
   end
 
   defp set_throttle_and_position(event_data, assigns) do
-    {throttle, new_position} =
-      case event_data["position"] do
-        nil ->
-          {false, assigns.current_position}
+    case event_data["position"] do
+      nil ->
+        {false, assigns.current_position}
 
-        pos ->
-          {true, String.to_integer(pos)}
-      end
+      pos ->
+        {true, String.to_integer(pos)}
+    end
   end
 
   defp print_coordinates({utc_datetime, latitude, longitude}, timezone) do
