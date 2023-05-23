@@ -92,7 +92,7 @@ defmodule NauticNet.NetCDF do
             min_lon: min_lon,
             max_lat: max_lat,
             max_lon: max_lon,
-            zoom_lovel: zoom_level
+            zoom_level: zoom_level
           })
       })
     end)
