@@ -168,6 +168,18 @@ defmodule NauticNetWeb.MapLive do
     {:noreply, assign(socket, :data_sources_modal_visible?, false)}
   end
 
+  # PubSub message from NauticNet.Ingest
+  def handle_info({:new_samples, samples}, socket) do
+    # Only care about samples that are "today"
+    samples =
+      Enum.filter(samples, fn s -> DateTime.to_date(s.time) == socket.assigns.selected_date end)
+
+    IO.inspect("#{length(samples)} new samples")
+    # TODO: Push samples to JS
+
+    {:noreply, socket}
+  end
+
   defp push_boat_views(socket) do
     boat_views =
       Enum.map(socket.assigns.boat_views, fn bv ->
@@ -318,7 +330,9 @@ defmodule NauticNetWeb.MapLive do
 
     socket
     |> assign(:selected_date, date)
+    |> unsubscribe_from_boats()
     |> assign(:boat_views, boat_views)
+    |> subscribe_to_boats()
     |> assign(:first_sample_at, first_sample_at)
     |> assign(:last_sample_at, last_sample_at)
     |> assign(:range_start_at, first_sample_at)
@@ -525,5 +539,21 @@ defmodule NauticNetWeb.MapLive do
       |> String.pad_leading(2, "0")
 
     "##{red}#{green}#{blue}"
+  end
+
+  defp subscribe_to_boats(socket) do
+    for boat_view <- socket.assigns.boat_views do
+      Phoenix.PubSub.subscribe(NauticNet.PubSub, "boat:#{boat_view.boat.id}")
+    end
+
+    socket
+  end
+
+  defp unsubscribe_from_boats(socket) do
+    for boat_view <- socket.assigns.boat_views do
+      Phoenix.PubSub.unsubscribe(NauticNet.PubSub, "boat:#{boat_view.boat.id}")
+    end
+
+    socket
   end
 end
