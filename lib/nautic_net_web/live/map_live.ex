@@ -232,55 +232,55 @@ defmodule NauticNetWeb.MapLive do
     |> push_map_state()
   end
 
-  defp __update_water__(%{assigns: assigns} = socket, params) do
-    throttle? = !!params["position"]
+  # defp __update_water__(%{assigns: assigns} = socket, params) do
+  #   throttle? = !!params["position"]
 
-    zoom_level = params["zoom_level"] || assigns.zoom_level
-    viewport_change? = params["viewport_change"] == true
+  #   zoom_level = params["zoom_level"] || assigns.zoom_level
+  #   viewport_change? = params["viewport_change"] == true
 
-    t0 = assigns.first_sample_at
-    time = assigns.inspect_at
+  #   t0 = assigns.first_sample_at
+  #   time = assigns.inspect_at
 
-    now = now_ms()
-    diff_ms = now - assigns.last_water_event_sent_at
+  #   now = now_ms()
+  #   diff_ms = now - assigns.last_water_event_sent_at
 
-    milliseconds_diff = DateTime.diff(time, t0, :millisecond)
-    time = NauticNet.NetCDF.epoch() + milliseconds_diff / (24 * :timer.hours(1))
+  #   milliseconds_diff = DateTime.diff(time, t0, :millisecond)
+  #   time = NauticNet.NetCDF.epoch() + milliseconds_diff / (24 * :timer.hours(1))
 
-    index = NauticNet.NetCDF.get_geodata_time_index(time)
+  #   index = NauticNet.NetCDF.get_geodata_time_index(time)
 
-    {last_water_event_index, last_water_event_sent_at, water_data} =
-      if (index != assigns.last_water_event_index or viewport_change?) and
-           ((throttle? and diff_ms > 33) or not throttle?) and assigns.water_visible? do
-        %{
-          "min_lat" => min_lat,
-          "min_lon" => min_lon,
-          "max_lat" => max_lat,
-          "max_lon" => max_lon
-        } = assigns.bounding_box
+  #   {last_water_event_index, last_water_event_sent_at, water_data} =
+  #     if (index != assigns.last_water_event_index or viewport_change?) and
+  #          ((throttle? and diff_ms > 33) or not throttle?) and assigns.water_visible? do
+  #       %{
+  #         "min_lat" => min_lat,
+  #         "min_lon" => min_lon,
+  #         "max_lat" => max_lat,
+  #         "max_lon" => max_lon
+  #       } = assigns.bounding_box
 
-        data =
-          index
-          |> NauticNet.NetCDF.get_geodata(min_lat, max_lat, min_lon, max_lon, zoom_level)
-          |> Base.encode64()
+  #       data =
+  #         index
+  #         |> NauticNet.NetCDF.get_geodata(min_lat, max_lat, min_lon, max_lon, zoom_level)
+  #         |> Base.encode64()
 
-        {index, now, data}
-      else
-        {assigns.last_water_event_index, assigns.last_water_event_sent_at, nil}
-      end
+  #       {index, now, data}
+  #     else
+  #       {assigns.last_water_event_index, assigns.last_water_event_sent_at, nil}
+  #     end
 
-    socket
-    |> assign(:zoom_level, zoom_level)
-    |> assign(:last_water_event_sent_at, last_water_event_sent_at)
-    |> assign(:last_water_event_index, last_water_event_index)
-    |> then(fn s ->
-      if water_data do
-        push_event(s, "add_water_markers", %{water_data: water_data})
-      else
-        s
-      end
-    end)
-  end
+  #   socket
+  #   |> assign(:zoom_level, zoom_level)
+  #   |> assign(:last_water_event_sent_at, last_water_event_sent_at)
+  #   |> assign(:last_water_event_index, last_water_event_index)
+  #   |> then(fn s ->
+  #     if water_data do
+  #       push_event(s, "add_water_markers", %{water_data: water_data})
+  #     else
+  #       s
+  #     end
+  #   end)
+  # end
 
   defp assign_dates_and_boats(socket) do
     [first_date | _] = dates = Playback.list_all_dates(socket.assigns.timezone)
