@@ -1,4 +1,5 @@
 defmodule NauticNet.Data.Sensor do
+  @moduledoc "Schema module for sensors"
   use NauticNet.Schema
 
   alias NauticNet.Data.Sample

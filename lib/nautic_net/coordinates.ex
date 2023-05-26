@@ -1,4 +1,5 @@
 defmodule NauticNet.Coordinates do
+  @moduledoc false
   @default_path "priv/external/"
 
   def get_coordinates(filename) do

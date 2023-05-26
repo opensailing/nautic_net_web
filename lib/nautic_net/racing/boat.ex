@@ -1,4 +1,5 @@
 defmodule NauticNet.Racing.Boat do
+  @moduledoc "Schema module for boats"
   use NauticNet.Schema
 
   alias NauticNet.Data.Sample
