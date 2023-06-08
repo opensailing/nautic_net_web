@@ -28,7 +28,9 @@ defmodule NauticNet.Ingest.UDPServer do
   end
 
   @impl true
-  def handle_info({:udp, _socket, _address, _port, data}, state) do
+  def handle_info({:udp, _socket, address, _port, data}, state) do
+    Logger.info("[UDPServer] [#{:inet.ntoa(address)}] - Received #{byte_size(data)} bytes")
+
     # TODO: Kick this out to another process? Flow? GenStage? Something??
     case Ingest.insert_samples(data) do
       :ok ->

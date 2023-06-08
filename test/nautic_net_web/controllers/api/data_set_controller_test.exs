@@ -17,7 +17,7 @@ defmodule NauticNetWeb.Api.DataSetControllerTest do
           data_points: [
             Protobuf.DataSet.DataPoint.new!(
               timestamp: Util.datetime_to_protobuf_timestamp(now),
-              hw_unique_number: 123,
+              hw_id: 123,
               sample:
                 {:position,
                  Protobuf.PositionSample.new!(

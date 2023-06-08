@@ -35,7 +35,7 @@ defmodule NauticNet.Ingest do
     sample_rows =
       Enum.flat_map(data_set.data_points, fn protobuf_data_point ->
         # Figure out the sensor DB id
-        sensor_id = lookup_sensor(sensor_id_lookup, protobuf_data_point.hw_unique_number)
+        sensor_id = lookup_sensor(sensor_id_lookup, protobuf_data_point.hw_id)
 
         # Build the attrs for the DataPoint and associated sample rows
         sample_attr_rows(protobuf_data_point, boat.id, sensor_id)
@@ -77,7 +77,7 @@ defmodule NauticNet.Ingest do
     # Find all HW identifiers in this DataSet
     sensor_identifiers =
       data_set.data_points
-      |> Enum.map(&encode_sensor_identifier(&1.hw_unique_number))
+      |> Enum.map(&encode_sensor_identifier(&1.hw_id))
       |> Enum.uniq()
 
     # Fetch all known Sensors from the DB
@@ -89,20 +89,44 @@ defmodule NauticNet.Ingest do
       |> Map.new()
 
     # Create any missing Sensors (only occurs the first time a Sensor shows up)
-    Map.new(sensor_identifiers, fn identifier ->
-      case Map.fetch(known_sensor_ids_by_identifier, identifier) do
-        {:ok, sensor_id} ->
-          {identifier, sensor_id}
+    lookup =
+      Map.new(sensor_identifiers, fn identifier ->
+        case Map.fetch(known_sensor_ids_by_identifier, identifier) do
+          {:ok, sensor_id} ->
+            {identifier, sensor_id}
 
-        :error ->
-          sensor = create_sensor!(boat, %{name: identifier, hardware_identifier: identifier})
-          {identifier, sensor.id}
+          :error ->
+            sensor = create_sensor!(boat, %{name: identifier, hardware_identifier: identifier})
+            {identifier, sensor.id}
+        end
+      end)
+
+    # If the DataSet provided sensor metadata, let's update that now
+    for network_device <- data_set.network_devices do
+      Sensor
+      |> where(
+        [s],
+        s.boat_id == ^boat.id and
+          s.hardware_identifier == ^encode_sensor_identifier(network_device.hw_id)
+      )
+      |> Repo.one()
+      |> case do
+        nil ->
+          create_sensor!(boat, %{
+            name: network_device.name,
+            hardware_identifier: encode_sensor_identifier(network_device.hw_id)
+          })
+
+        %Sensor{} = sensor ->
+          update_sensor!(sensor, %{name: network_device.name})
       end
-    end)
+    end
+
+    lookup
   end
 
-  defp lookup_sensor(sensor_id_lookup, hw_unique_number) when is_integer(hw_unique_number) do
-    Map.fetch!(sensor_id_lookup, encode_sensor_identifier(hw_unique_number))
+  defp lookup_sensor(sensor_id_lookup, hw_id) when is_integer(hw_id) do
+    Map.fetch!(sensor_id_lookup, encode_sensor_identifier(hw_id))
   end
 
   # Creates a new Sensor that we haven't yet seen before
@@ -110,6 +134,13 @@ defmodule NauticNet.Ingest do
     %Sensor{boat_id: boat.id}
     |> Sensor.insert_changeset(params)
     |> Repo.insert!()
+  end
+
+  # Updates a new Sensor with new metadata
+  defp update_sensor!(sensor, params) do
+    sensor
+    |> Sensor.update_changeset(params)
+    |> Repo.update!()
   end
 
   defp broadcast_new_samples(boat, sample_rows) do

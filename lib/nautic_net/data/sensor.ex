@@ -3,7 +3,7 @@ defmodule NauticNet.Data.Sensor do
 
   alias NauticNet.Data.Sample
   alias NauticNet.Racing.Boat
-
+ 
   schema "sensors" do
     belongs_to :boat, Boat
     has_many :samples, Sample
@@ -19,5 +19,12 @@ defmodule NauticNet.Data.Sensor do
     sensor
     |> cast(params, [:name, :hardware_identifier])
     |> validate_required([:name, :hardware_identifier])
+  end
+
+  @doc false
+  def update_changeset(sensor, params) do
+    sensor
+    |> cast(params, [:name])
+    |> validate_required([:name])
   end
 end
