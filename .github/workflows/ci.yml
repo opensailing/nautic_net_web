@@ -1,4 +1,4 @@
-name: Nautic Net Web
+name: CI  
 
 on:
   push:
@@ -17,7 +17,7 @@ permissions:
 jobs:
   build:
 
-    name: CI
+    name: Build and test app
     runs-on: ubuntu-latest
     services:
       postgres:
