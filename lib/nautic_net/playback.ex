@@ -198,18 +198,23 @@ defmodule NauticNet.Playback do
     end
   end
 
-  def fill_latest_samples(boat, datetime, data_sources) do
-    Enum.map(data_sources, fn data_source ->
+  def fill_latest_samples(data_sources, boat, datetime) do
+    for data_source <- data_sources do
       # TODO: Optimize this, since it calls N queries
-      %{data_source | latest_sample: get_latest_sample(boat, datetime, data_source)}
-    end)
+      sensors =
+        for sensor <- data_source.sensors do
+          %{sensor | latest_sample: get_latest_sample(boat, datetime, data_source, sensor)}
+        end
+
+      %{data_source | sensors: sensors}
+    end
   end
 
-  def get_latest_sample(%Boat{} = boat, %DateTime{} = datetime, data_source) do
+  def get_latest_sample(%Boat{} = boat, %DateTime{} = datetime, data_source, sensor) do
     cutoff_datetime = DateTime.add(datetime, -1, :minute)
 
     Sample
-    |> where_data_source(data_source)
+    |> where_data_source(data_source, sensor)
     |> where([s], s.boat_id == ^boat.id)
     |> where([s], s.time < ^datetime and s.time > ^cutoff_datetime)
     |> order_by([s], desc: s.time)
@@ -244,13 +249,17 @@ defmodule NauticNet.Playback do
     end
   end
 
-  defp where_data_source(sample_query, %DataSource{selected_sensor: nil}) do
+  defp where_data_source(sample_query, %DataSource{sensors: []}) do
     where(sample_query, false)
   end
 
-  defp where_data_source(sample_query, %DataSource{} = data_source) do
+  defp where_data_source(sample_query, %DataSource{sensors: [sensor | _]} = data_source) do
+    where_data_source(sample_query, data_source, sensor)
+  end
+
+  defp where_data_source(sample_query, %DataSource{} = data_source, sensor) do
     sample_query
-    |> where([s], s.sensor_id == ^data_source.selected_sensor.id)
+    |> where([s], s.sensor_id == ^sensor.id)
     |> where([s], s.type == ^data_source.type)
   end
 

@@ -3,6 +3,7 @@ defmodule NauticNetWeb.MapLive do
 
   alias Phoenix.PubSub
   alias NauticNet.Data.Sample
+  alias NauticNet.Data.Sensor
   alias NauticNet.Coordinates
   alias NauticNet.Playback
   alias NauticNet.Playback.DataSource
@@ -224,15 +225,13 @@ defmodule NauticNetWeb.MapLive do
 
     socket =
       Enum.reduce(assigns.boat_views, socket, fn boat_view, socket ->
-        # TEMP: Do nothing right now
-        new_data_sources = boat_view.data_sources
-
         # TODO: Make sample fetching more efficient
-        # Playback.fill_latest_samples(
-        #   boat_view.boat,
-        #   new_inspect_at,
-        #   boat_view.data_sources
-        # )
+        new_data_sources =
+          Playback.fill_latest_samples(
+            boat_view.data_sources,
+            boat_view.boat,
+            new_inspect_at
+          )
 
         new_boat_view = %{boat_view | data_sources: new_data_sources}
         put_boat_view(socket, new_boat_view)
@@ -322,11 +321,8 @@ defmodule NauticNetWeb.MapLive do
     # Set up the range for the main slider
     {first_sample_at, last_sample_at} = Playback.get_sample_range_on(date, assigns.timezone)
 
-    map_center =
-      case boat_views do
-        [] -> nil
-        [bv | _] -> Coordinates.get_center(bv.coordinates)
-      end
+    selected_boat_view = List.first(boat_views)
+    map_center = selected_boat_view && Coordinates.get_center(selected_boat_view.coordinates)
 
     socket
     |> assign(:selected_date, date)
@@ -345,7 +341,7 @@ defmodule NauticNetWeb.MapLive do
     })
     |> push_boat_views()
     |> push_map_state()
-    |> select_boat_view(nil)
+    |> select_boat_view(selected_boat_view)
     |> set_map_view(map_center)
   end
 
@@ -371,6 +367,9 @@ defmodule NauticNetWeb.MapLive do
     |> assign(:selected_boat_view, nil)
     |> assign(:data_sources_modal_visible?, false)
   end
+
+  defp select_boat_view(socket, %BoatView{boat: %{id: boat_id}}),
+    do: select_boat_view(socket, boat_id)
 
   defp select_boat_view(socket, boat_id) do
     boat_view = Enum.find(socket.assigns.boat_views, &(&1.boat.id == boat_id))
@@ -405,7 +404,19 @@ defmodule NauticNetWeb.MapLive do
 
   defp get_latest_sample(data_sources, data_source_id) do
     case Enum.find(data_sources, &(&1.id == data_source_id)) do
-      %DataSource{latest_sample: %Sample{} = sample} -> sample
+      %DataSource{selected_sensor: %Sensor{id: selected_sensor_id}} ->
+        get_latest_sample(data_sources, data_source_id, selected_sensor_id)
+
+      _ ->
+        nil
+    end
+  end
+
+  defp get_latest_sample(data_sources, data_source_id, sensor_id) do
+    with %DataSource{sensors: sensors} <- Enum.find(data_sources, &(&1.id == data_source_id)),
+         %Sensor{latest_sample: latest_sample} <- Enum.find(sensors, &(&1.id == sensor_id)) do
+      latest_sample
+    else
       _ -> nil
     end
   end

@@ -82,7 +82,7 @@
       </td>
       <td>
         <label for={"boat-toggle-#{boat_view.boat.id}"} class="cursor-pointer">
-          <%= boat_view.boat.id %>
+          <%= boat_view.boat.name || "Untitled" %> (<%= boat_view.boat.id %>)
         </label>
       </td>
     </tr>
@@ -190,4 +190,21 @@
   <div>column 3</div>
 </div>
 
-<.live_inspect term={@selected_boat_view} />
+<%= if @selected_boat_view do %>
+  <table class="w-full">
+    <%= for data_source <- @selected_boat_view.data_sources, data_source.sensors != [] do %>
+      <tr class="bg-gray-200">
+        <th class="px-2 py-1 text-center" colspan="99"><%= data_source.name %></th>
+      </tr>
+      <%= for sensor <- data_source.sensors do %>
+        <tr>
+          <th class="text-right px-2 py-1 w-1/2"><%= sensor.name %></th>
+          <td>
+            <%= (sensor.latest_sample &&
+                   inspect(Map.take(sensor.latest_sample, [:magnitude, :angle]))) || "––" %>
+          </td>
+        </tr>
+      <% end %>
+    <% end %>
+  </table>
+<% end %>

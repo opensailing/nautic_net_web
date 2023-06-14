@@ -3,13 +3,15 @@ defmodule NauticNet.Data.Sensor do
 
   alias NauticNet.Data.Sample
   alias NauticNet.Racing.Boat
- 
+
   schema "sensors" do
     belongs_to :boat, Boat
     has_many :samples, Sample
 
     field :hardware_identifier, :string
     field :name, :string
+
+    field :latest_sample, :map, virtual: true
 
     timestamps()
   end
