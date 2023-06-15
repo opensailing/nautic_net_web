@@ -153,23 +153,67 @@ defmodule NauticNet.Playback do
     end
   end
 
-  def fill_latest_samples(signals, datetime) do
+  @doc """
+  Given a list of %Signal{} structs, populates each :latest_sample at a given time.
+
+  Samples up to 5 seconds in the past are considered "latest".
+  """
+  def fill_latest_samples(signals, end_datetime) do
+    start_datetime = DateTime.add(end_datetime, -5, :second)
+
+    # Bulk fetch latest samples from all channels at once
+    channel_samples =
+      signals
+      |> Enum.map(& &1.channel)
+      |> list_latest_samples_by_channel(start_datetime, end_datetime)
+
+    # Use lookup table
     for signal <- signals do
-      # TODO: Optimize this to do a bulk fetch, so it doesn't call N queries
-      %{signal | latest_sample: get_latest_sample(signal.channel, datetime)}
+      %{signal | latest_sample: channel_samples[signal.channel]}
     end
   end
 
-  def get_latest_sample(%Channel{} = channel, %DateTime{} = datetime) do
-    cutoff_datetime = DateTime.add(datetime, -1, :minute)
+  # Returns a map of %{%Channel{} => %Sample{}} of the latest sample within the given interval
+  defp list_latest_samples_by_channel(
+         channels,
+         %DateTime{} = start_datetime,
+         %DateTime{} = end_datetime
+       ) do
+    samples =
+      Sample
+      # This is slow so I am commenting it out for now, but it might be desired later
+      # |> where(^in_channels(channels))
+      |> where([s], s.time <= ^end_datetime and s.time > ^start_datetime)
+      |> order_by([s], desc: s.time)
+      |> Repo.all()
 
-    Sample
-    |> where_channel(channel)
-    |> where([s], s.time < ^datetime and s.time > ^cutoff_datetime)
-    |> order_by([s], desc: s.time)
-    |> limit(1)
-    |> Repo.one()
+    Map.new(channels, fn channel ->
+      sample =
+        Enum.find(
+          samples,
+          fn sample ->
+            sample.boat_id == channel.boat.id and
+              sample.sensor_id == channel.sensor.id and
+              sample.type == channel.type
+          end
+        )
+
+      {channel, sample}
+    end)
   end
+
+  # Returns a dynamic expression that can be used in WHERE clauses to filter by multiple channels
+  # defp in_channels(channels) do
+  #   Enum.reduce(channels, dynamic(true), fn channel, dynamic ->
+  #     dynamic(
+  #       [s],
+  #       ^dynamic or
+  #         (s.boat_id == ^channel.boat.id and
+  #            s.sensor_id == ^channel.sensor.id and
+  #            s.type == ^channel.type)
+  #     )
+  #   end)
+  # end
 
   # Convert the date to a pair of DateTimes that represent the start and end of the day in the desired
   # timezone, but then convert to UTC for easy interpolation into the database
