@@ -2,17 +2,13 @@ defmodule NauticNetWeb.MapLive do
   use NauticNetWeb, :live_view
 
   alias Phoenix.PubSub
-  alias NauticNet.Data.Sample
-  alias NauticNet.Data.Sensor
   alias NauticNet.Coordinates
   alias NauticNet.Playback
-  alias NauticNet.Playback.DataSource
+  alias NauticNet.Playback.Channel
+  alias NauticNet.Playback.Signal
+  alias NauticNet.Racing.Boat
 
   require Logger
-
-  defmodule BoatView do
-    defstruct boat: nil, coordinates: [], visible?: true, data_sources: [], track_color: nil
-  end
 
   @hingham_bounding_box %{
     "min_lat" => 42.1666,
@@ -36,8 +32,8 @@ defmodule NauticNetWeb.MapLive do
       |> assign(:last_water_event_sent_at, now_ms())
       |> assign(:last_water_event_index, nil)
 
-      # Boats
-      |> assign(:boat_views, [])
+      # Data
+      |> assign(:signals, [])
 
       # Map
       |> assign(:bounding_box, @hingham_bounding_box)
@@ -47,9 +43,6 @@ defmodule NauticNetWeb.MapLive do
       |> assign(:inspect_at, DateTime.utc_now())
       |> assign(:timezone, "America/New_York")
       |> assign_dates_and_boats()
-
-    # Selected boat
-    # |> assign_coordinates(Coordinates.get_coordinates("trip-01.csv"))
 
     {:ok, socket}
   end
@@ -93,11 +86,18 @@ defmodule NauticNetWeb.MapLive do
   def handle_event("set_boat_visible", %{"boat-id" => boat_id} = params, socket) do
     visible? = params["value"] == "on"
 
+    new_signals =
+      Enum.map(socket.assigns.signals, fn
+        %Signal{channel: %{boat: %{id: ^boat_id}}} = signal ->
+          %{signal | visible?: visible?}
+
+        signal ->
+          signal
+      end)
+
     socket =
       socket
-      |> update_boat_view(boat_id, fn boat_view ->
-        %{boat_view | visible?: visible?}
-      end)
+      |> assign(:signals, new_signals)
       |> push_event("set_boat_visible", %{boat_id: boat_id, visible: visible?})
 
     {:noreply, socket}
@@ -110,7 +110,7 @@ defmodule NauticNetWeb.MapLive do
   end
 
   def handle_event("select_boat", %{"boat_id" => boat_id}, socket) do
-    {:noreply, select_boat_view(socket, boat_id)}
+    {:noreply, select_boat(socket, boat_id)}
   end
 
   def handle_event("is_live_changed", %{"is_live" => is_live_param}, socket) do
@@ -143,23 +143,23 @@ defmodule NauticNetWeb.MapLive do
     {:noreply, socket}
   end
 
-  def handle_event(
-        "select_data_sources",
-        params,
-        %{assigns: %{selected_boat_view: selected_boat_view}} = socket
-      ) do
-    data_sources =
-      for data_source <- selected_boat_view.data_sources do
-        next_sensor = Enum.find(data_source.sensors, &(&1.id == params[data_source.id]))
-        %{data_source | selected_sensor: next_sensor}
-      end
+  # def handle_event(
+  #       "select_data_sources",
+  #       params,
+  #       %{assigns: %{selected_boat_view: selected_boat_view}} = socket
+  #     ) do
+  #   data_sources =
+  #     for data_source <- selected_boat_view.data_sources do
+  #       next_sensor = Enum.find(data_source.sensors, &(&1.id == params[data_source.id]))
+  #       %{data_source | selected_sensor: next_sensor}
+  #     end
 
-    new_boat_view = %{selected_boat_view | data_sources: data_sources}
+  #   new_boat_view = %{selected_boat_view | data_sources: data_sources}
 
-    socket = put_boat_view(socket, new_boat_view)
+  #   socket = put_boat_view(socket, new_boat_view)
 
-    {:noreply, socket}
-  end
+  #   {:noreply, socket}
+  # end
 
   def handle_event("show_data_sources_modal", _, socket) do
     {:noreply, assign(socket, :data_sources_modal_visible?, true)}
@@ -181,14 +181,14 @@ defmodule NauticNetWeb.MapLive do
     {:noreply, socket}
   end
 
-  defp push_boat_views(socket) do
+  defp push_boat_coordinates(socket) do
     boat_views =
-      Enum.map(socket.assigns.boat_views, fn bv ->
+      for %Signal{channel: %Channel{type: :position}} = signal <- socket.assigns.signals do
         %{
-          "boat_id" => bv.boat.id,
-          "track_color" => bv.track_color,
+          "boat_id" => signal.channel.boat.id,
+          "track_color" => signal.color,
           "coordinates" =>
-            Enum.map(bv.coordinates, fn coord ->
+            Enum.map(signal.coordinates, fn coord ->
               %{
                 "time" => DateTime.to_unix(coord.time),
                 "lat" => coord.latitude,
@@ -197,7 +197,7 @@ defmodule NauticNetWeb.MapLive do
               }
             end)
         }
-      end)
+      end
 
     push_event(socket, "boat_views", %{"boat_views" => boat_views})
   end
@@ -223,22 +223,10 @@ defmodule NauticNetWeb.MapLive do
         assigns.inspect_at
       end
 
-    socket =
-      Enum.reduce(assigns.boat_views, socket, fn boat_view, socket ->
-        # TODO: Make sample fetching more efficient
-        new_data_sources =
-          Playback.fill_latest_samples(
-            boat_view.data_sources,
-            boat_view.boat,
-            new_inspect_at
-          )
-
-        new_boat_view = %{boat_view | data_sources: new_data_sources}
-        put_boat_view(socket, new_boat_view)
-      end)
+    new_signals = Playback.fill_latest_samples(assigns.signals, new_inspect_at)
 
     socket
-    # |> set_marker_position(new_position)
+    |> assign(:signals, new_signals)
     |> assign(:inspect_at, new_inspect_at)
     |> push_map_state()
   end
@@ -303,31 +291,30 @@ defmodule NauticNetWeb.MapLive do
 
   # Set the date, boats, and data sources
   defp select_date(%{assigns: assigns} = socket, date) do
-    boat_views =
+    signals =
       date
-      |> Playback.list_active_boats(assigns.timezone)
-      |> Enum.map(fn boat ->
-        data_sources = Playback.list_data_sources(boat, date, assigns.timezone)
-        coordinates = Playback.list_coordinates(boat, date, assigns.timezone, data_sources)
+      |> Playback.list_channels_on(assigns.timezone)
+      |> Enum.map(fn
+        %Channel{type: :position, boat: boat} = channel ->
+          coordinates = Playback.list_coordinates(channel, date, assigns.timezone)
+          %Signal{channel: channel, coordinates: coordinates, color: boat_color(boat.id)}
 
-        %BoatView{
-          boat: boat,
-          data_sources: data_sources,
-          coordinates: coordinates,
-          track_color: track_color(boat.id)
-        }
+        %Channel{boat: boat} = channel ->
+          %Signal{channel: channel, color: boat_color(boat.id)}
       end)
 
     # Set up the range for the main slider
     {first_sample_at, last_sample_at} = Playback.get_sample_range_on(date, assigns.timezone)
 
-    selected_boat_view = List.first(boat_views)
-    map_center = selected_boat_view && Coordinates.get_center(selected_boat_view.coordinates)
+    first_position_signal = Enum.find(signals, &(&1.channel.type == :position))
+
+    map_center =
+      first_position_signal && Coordinates.get_center(first_position_signal.coordinates)
 
     socket
     |> assign(:selected_date, date)
     |> unsubscribe_from_boats()
-    |> assign(:boat_views, boat_views)
+    |> assign(:signals, signals)
     |> subscribe_to_boats()
     |> assign(:first_sample_at, first_sample_at)
     |> assign(:last_sample_at, last_sample_at)
@@ -339,9 +326,9 @@ defmodule NauticNetWeb.MapLive do
       min: DateTime.to_unix(first_sample_at),
       max: DateTime.to_unix(last_sample_at)
     })
-    |> push_boat_views()
+    |> push_boat_coordinates()
     |> push_map_state()
-    |> select_boat_view(selected_boat_view)
+    |> select_boat(first_position_signal)
     |> set_map_view(map_center)
   end
 
@@ -362,34 +349,29 @@ defmodule NauticNetWeb.MapLive do
     assign(socket, :inspect_at, inspect_at)
   end
 
-  defp select_boat_view(socket, nil) do
+  defp select_boat(socket, nil) do
     socket
-    |> assign(:selected_boat_view, nil)
+    |> assign(:selected_boat, nil)
     |> assign(:data_sources_modal_visible?, false)
   end
 
-  defp select_boat_view(socket, %BoatView{boat: %{id: boat_id}}),
-    do: select_boat_view(socket, boat_id)
+  defp select_boat(socket, %Signal{channel: %Channel{boat: boat}}), do: select_boat(socket, boat)
+  defp select_boat(socket, %Channel{boat: boat}), do: select_boat(socket, boat)
+  defp select_boat(socket, %Boat{} = boat), do: assign(socket, :selected_boat, boat)
 
-  defp select_boat_view(socket, boat_id) do
-    boat_view = Enum.find(socket.assigns.boat_views, &(&1.boat.id == boat_id))
+  defp select_boat(socket, boat_id) when is_binary(boat_id) do
+    signal = Enum.find(socket.assigns.signals, &(&1.channel.boat.id == boat_id))
 
-    assign(socket, :selected_boat_view, boat_view)
-  end
-
-  defp sensor_count(data_sources) do
-    data_sources
-    |> Enum.flat_map(fn data_source ->
-      Enum.map(data_source.sensors, & &1.id)
-    end)
-    |> Enum.uniq()
-    |> Enum.count()
+    select_boat(socket, signal.channel.boat)
   end
 
   # <select> option helpers
 
-  defp boat_options(boat_views) do
-    Enum.map(boat_views, &{&1.boat.name, &1.boat.id})
+  defp boat_options(signals) do
+    signals
+    |> Enum.map(&{&1.channel.boat.name, &1.channel.boat.id})
+    |> Enum.uniq()
+    |> Enum.sort()
   end
 
   defp date_options(dates) do
@@ -402,29 +384,10 @@ defmodule NauticNetWeb.MapLive do
     [{"Off", ""}] ++ Enum.map(sensors, &{&1.name, &1.id})
   end
 
-  defp get_latest_sample(data_sources, data_source_id) do
-    case Enum.find(data_sources, &(&1.id == data_source_id)) do
-      %DataSource{selected_sensor: %Sensor{id: selected_sensor_id}} ->
-        get_latest_sample(data_sources, data_source_id, selected_sensor_id)
-
-      _ ->
-        nil
-    end
-  end
-
-  defp get_latest_sample(data_sources, data_source_id, sensor_id) do
-    with %DataSource{sensors: sensors} <- Enum.find(data_sources, &(&1.id == data_source_id)),
-         %Sensor{latest_sample: latest_sample} <- Enum.find(sensors, &(&1.id == sensor_id)) do
-      latest_sample
-    else
-      _ -> nil
-    end
-  end
-
-  attr :label, :string, required: true
-  attr :sample, :map, required: true
-  attr :field, :atom, required: true, values: [:angle_rad, :depth_m, :speed_m_s]
-  attr :unit, :atom, required: true, values: [:deg, :kn, :ft]
+  attr(:label, :string, required: true)
+  attr(:sample, :map, required: true)
+  attr(:field, :atom, required: true, values: [:angle_rad, :depth_m, :speed_m_s])
+  attr(:unit, :atom, required: true, values: [:deg, :kn, :ft])
 
   defp sample_view(assigns) do
     display_value =
@@ -487,38 +450,6 @@ defmodule NauticNetWeb.MapLive do
     push_event(socket, "map_view", %{latitude: latitude, longitude: longitude})
   end
 
-  defp put_boat_view(
-         %{assigns: %{boat_views: boat_views, selected_boat_view: selected_boat_view}} = socket,
-         %{boat: %{id: boat_id}} = new_boat_view
-       ) do
-    new_boat_views =
-      Enum.map(boat_views, fn
-        %{boat: %{id: ^boat_id}} -> new_boat_view
-        boat_view -> boat_view
-      end)
-
-    new_selected_boat_view =
-      case selected_boat_view do
-        %{boat: %{id: ^boat_id}} -> new_boat_view
-        boat_view -> boat_view
-      end
-
-    socket
-    |> assign(:boat_views, new_boat_views)
-    |> assign(:selected_boat_view, new_selected_boat_view)
-  end
-
-  defp update_boat_view(socket, boat_id, fun) do
-    boat_view = Enum.find(socket.assigns.boat_views, &(&1.boat.id == boat_id))
-
-    new_boat_view = fun.(boat_view)
-
-    put_boat_view(socket, new_boat_view)
-  end
-
-  defp data_sources(%BoatView{data_sources: data_sources}), do: data_sources
-  defp data_sources(_), do: []
-
   defp parse_unix_datetime(param, timezone) when is_binary(param) do
     param
     |> Float.parse()
@@ -528,7 +459,7 @@ defmodule NauticNetWeb.MapLive do
     |> Timex.to_datetime(timezone)
   end
 
-  defp track_color(boat_id) do
+  defp boat_color(boat_id) do
     red =
       boat_id
       |> :erlang.phash2(256)
@@ -553,18 +484,47 @@ defmodule NauticNetWeb.MapLive do
   end
 
   defp subscribe_to_boats(socket) do
-    for boat_view <- socket.assigns.boat_views do
-      Phoenix.PubSub.subscribe(NauticNet.PubSub, "boat:#{boat_view.boat.id}")
+    for boat <- boats(socket.assigns.signals) do
+      Phoenix.PubSub.subscribe(NauticNet.PubSub, "boat:#{boat.id}")
     end
 
     socket
   end
 
   defp unsubscribe_from_boats(socket) do
-    for boat_view <- socket.assigns.boat_views do
-      Phoenix.PubSub.unsubscribe(NauticNet.PubSub, "boat:#{boat_view.boat.id}")
+    for boat <- boats(socket.assigns.signals) do
+      Phoenix.PubSub.unsubscribe(NauticNet.PubSub, "boat:#{boat.id}")
     end
 
     socket
+  end
+
+  defp boats(signals) do
+    signals |> Enum.map(& &1.channel.boat) |> Enum.uniq()
+  end
+
+  defp position_signals(signals) do
+    Enum.filter(signals, &(&1.channel.type == :position))
+  end
+
+  defp boat_count(signals) do
+    signals |> Enum.map(& &1.channel.boat.id) |> Enum.uniq() |> length()
+  end
+
+  defp boat_signal_count(boat, signals) do
+    length(boat_signals(boat, signals))
+  end
+
+  defp boat_signals(nil, _signals), do: []
+
+  defp boat_signals(boat, signals) do
+    Enum.filter(signals, &(&1.channel.boat.id == boat.id))
+  end
+
+  defp signals_by_channel_name(boat, signals) do
+    boat
+    |> boat_signals(signals)
+    |> Enum.group_by(& &1.channel.name)
+    |> Enum.sort()
   end
 end

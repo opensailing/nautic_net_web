@@ -29,7 +29,7 @@
   </div>
 
   <div>
-    <%= length(@boat_views) %> <%= if length(@boat_views) == 1, do: "boat", else: "boats" %>
+    <%= boat_count(@signals) %> <%= if boat_count(@signals) == 1, do: "boat", else: "boats" %>
   </div>
 </div>
 
@@ -66,23 +66,23 @@
 </form>
 
 <table>
-  <%= for boat_view <- @boat_views do %>
+  <%= for %{channel: %{boat: boat}} = signal <- position_signals(@signals) do %>
     <tr>
       <td>
         <input
-          id={"boat-toggle-#{boat_view.boat.id}"}
+          id={"boat-toggle-#{boat.id}"}
           type="checkbox"
-          checked={boat_view.visible?}
+          checked={signal.visible?}
           phx-click="set_boat_visible"
-          phx-value-boat-id={boat_view.boat.id}
+          phx-value-boat-id={boat.id}
         />
       </td>
       <td>
-        <div class="w-3 h-3" style={"background-color: #{boat_view.track_color}"} />
+        <div class="w-3 h-3" style={"background-color: #{signal.color}"} />
       </td>
       <td>
-        <label for={"boat-toggle-#{boat_view.boat.id}"} class="cursor-pointer">
-          <%= boat_view.boat.name || "Untitled" %> (<%= boat_view.boat.id %>)
+        <label for={"boat-toggle-#{boat.id}"} class="cursor-pointer">
+          <%= boat.name || "Untitled" %> (<%= boat.id %>)
         </label>
       </td>
     </tr>
@@ -113,98 +113,31 @@
         type="select"
         id="boat_id"
         name="boat_id"
-        value={@selected_boat_view && @selected_boat_view.boat.id}
-        options={boat_options(@boat_views)}
+        value={@selected_boat && @selected_boat.id}
+        options={boat_options(@signals)}
         errors={[]}
       />
     </form>
 
     <.button phx-click="show_data_sources_modal">
-      <%= sensor_count(data_sources(@selected_boat_view)) %> sensors
+      <%= boat_signal_count(@selected_boat, @signals) %> signals
     </.button>
-
-    <%= if @data_sources_modal_visible? do %>
-      <.modal id="data_sources_modal" show={true} on_cancel={JS.push("hide_data_sources_modal")}>
-        <:title>Select Sensors</:title>
-        <form phx-change="select_data_sources">
-          <%= for data_source <- data_sources(@selected_boat_view) do %>
-            <fieldset class="my-3">
-              <label for={data_source.id} class="font-semibold mb-1">
-                <%= data_source.name %>
-              </label>
-              <.input
-                type="select"
-                id={"data_source_" <> data_source.id}
-                name={data_source.id}
-                value={if data_source.selected_sensor, do: data_source.selected_sensor.id}
-                options={sensor_options(data_source.sensors)}
-                errors={[]}
-                disabled={data_source.sensors == []}
-              />
-            </fieldset>
-          <% end %>
-        </form>
-      </.modal>
-    <% end %>
   </div>
-
-  <div class="grid grid-cols-2 gap-4">
-    <.sample_view
-      label="True Heading"
-      sample={get_latest_sample(data_sources(@selected_boat_view), "true_heading")}
-      field={:angle_rad}
-      unit={:deg}
-    />
-    <.sample_view
-      label="COG"
-      sample={get_latest_sample(data_sources(@selected_boat_view), "velocity_over_ground")}
-      field={:angle_rad}
-      unit={:deg}
-    />
-    <.sample_view
-      label="Speed Thru Water"
-      sample={get_latest_sample(data_sources(@selected_boat_view), "speed_through_water")}
-      field={:speed_m_s}
-      unit={:kn}
-    />
-    <.sample_view
-      label="SOG"
-      sample={get_latest_sample(data_sources(@selected_boat_view), "velocity_over_ground")}
-      field={:speed_m_s}
-      unit={:kn}
-    />
-    <.sample_view
-      label="Apparent Wind"
-      sample={get_latest_sample(data_sources(@selected_boat_view), "apparent_wind")}
-      field={:angle_rad}
-      unit={:deg}
-    />
-    <.sample_view
-      label="Depth"
-      sample={get_latest_sample(data_sources(@selected_boat_view), "depth")}
-      field={:depth_m}
-      unit={:ft}
-    />
-  </div>
-
-  <div>column 3</div>
 </div>
 
-<%= if @selected_boat_view do %>
-  <table class="w-full">
-    <%= for data_source <- @selected_boat_view.data_sources, data_source.sensors != [] do %>
-      <tr class="bg-gray-200">
-        <th class="px-2 py-1 text-center" colspan="99"><%= data_source.name %></th>
+<table class="w-full">
+  <%= for {channel_name, signals} <- signals_by_channel_name(@selected_boat, @signals) do %>
+    <tr class="bg-gray-200">
+      <th class="px-2 py-1 text-center" colspan="99"><%= channel_name %></th>
+    </tr>
+    <%= for signal <- signals do %>
+      <tr>
+        <th class="text-right px-2 py-1 w-1/2"><%= signal.channel.sensor.name %></th>
+        <td>
+          <%= (signal.latest_sample &&
+                 inspect(Map.take(signal.latest_sample, [:magnitude, :angle]))) || "––" %>
+        </td>
       </tr>
-      <%= for sensor <- data_source.sensors do %>
-        <tr>
-          <th class="text-right px-2 py-1 w-1/2"><%= sensor.name %></th>
-          <td>
-            <%= (sensor.latest_sample &&
-                   inspect(Map.take(sensor.latest_sample, [:magnitude, :angle]))) || "––" %>
-          </td>
-        </tr>
-      <% end %>
     <% end %>
-  </table>
-<% end %>
+  <% end %>
+</table>

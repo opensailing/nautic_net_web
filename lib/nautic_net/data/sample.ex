@@ -169,6 +169,8 @@ defmodule NauticNet.Data.Sample do
 
   def types, do: @types
 
+  def get_type_info(type), do: Enum.find(@types, &(&1.type == type))
+
   defp magnetic_heading_to_true_heading(mag_heading_rad) do
     # TODO: Calculate magnetic declination based on lat/lon... currently hardcoded to Hingham, MA (14.21° W declination)
     declination_deg = -14.21

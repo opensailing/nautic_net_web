@@ -6,8 +6,7 @@ defmodule NauticNet.Playback do
   import Ecto.Query
 
   alias NauticNet.Data.Sample
-  alias NauticNet.Data.Sensor
-  alias NauticNet.Playback.DataSource
+  alias NauticNet.Playback.Channel
   alias NauticNet.Racing.Boat
   alias NauticNet.Repo
 
@@ -29,6 +28,19 @@ defmodule NauticNet.Playback do
     end
   end
 
+  def list_channels_on(%Date{} = date, timezone) do
+    Sample
+    |> where_date(date, timezone)
+    |> join(:left, [sa], b in assoc(sa, :boat))
+    |> join(:left, [sa, b], sn in assoc(sa, :sensor))
+    |> select([sa, b, sn], %{boat: b, sensor: sn, type: sa.type})
+    |> distinct(true)
+    |> Repo.all()
+    |> Enum.map(fn %{boat: boat, sensor: sensor, type: type} ->
+      Channel.new(boat, sensor, type)
+    end)
+  end
+
   @doc """
   Returns a list of Boat structs that were active on a given day.
   """
@@ -47,71 +59,14 @@ defmodule NauticNet.Playback do
   end
 
   @doc """
-  Returns an ordered list of DataSource structs that represent the different type of
-  measurements that can be displayed directly from the sample data.
-  """
-  def all_data_sources do
-    Enum.map(Sample.types(), fn type ->
-      %DataSource{
-        id: to_string(type.type),
-        name: type.name,
-        type: type.type
-      }
-    end)
-  end
-
-  @doc """
-  Returns a list of DataSource structs with the available sensors populated.
-
-      [%DataSource{sensors: [...], selected_sensor: %Sensor{} | nil, ...}, ...]
-
-  """
-  def list_data_sources(boat, %Date{} = date, timezone) do
-    # [%{measurement: :foo, reference: :bar, sensor_id: "bat"}, ...]
-    known_sensor_measurements =
-      Sample
-      |> where([s], s.boat_id == ^boat.id)
-      |> where_date(date, timezone)
-      |> select([s], %{type: s.type, sensor_id: s.sensor_id})
-      |> distinct(true)
-      |> Repo.all()
-
-    # ["sensor_1", "sensor_2", ...]
-    known_sensor_ids =
-      known_sensor_measurements
-      |> Enum.map(& &1.sensor_id)
-      |> Enum.uniq()
-
-    # %{"sensor_1" => %Sensor{}, ...}
-    sensor_lookup =
-      Sensor
-      |> where([s], s.id in ^known_sensor_ids)
-      |> Repo.all()
-      |> Map.new(&{&1.id, &1})
-
-    # [%DataSource{sensors: [...], selected_sensor: %Sensor{} | nil, ...}, ...]
-    for data_source <- all_data_sources() do
-      sensors =
-        for ksm <- known_sensor_measurements,
-            ksm.type == data_source.type,
-            do: Map.fetch!(sensor_lookup, ksm.sensor_id)
-
-      selected_sensor = List.first(sensors)
-
-      %{data_source | sensors: sensors, selected_sensor: selected_sensor}
-    end
-  end
-
-  @doc """
   Returns a list of coordinate maps for display in MapLive.
 
-  Keys: :boat_id, :time, :latitude, :longitude
+  Keys: :time, :latitude, :longitude, :true_heading
   """
-  def list_coordinates(%Boat{} = boat, %Date{} = date, timezone, data_sources) do
+  def list_coordinates(%Channel{} = channel, %Date{} = date, timezone) do
     positions =
       Sample
-      |> where_data_source(fetch_data_source!(data_sources, "position"))
-      |> where([s], s.boat_id == ^boat.id)
+      |> where_channel(channel)
       |> where_date(date, timezone)
       |> order_by([s], s.time)
       |> select([s], {s.time, s.position})
@@ -125,16 +80,16 @@ defmodule NauticNet.Playback do
         }
       end)
 
-    headings =
-      Sample
-      |> where_data_source(fetch_data_source!(data_sources, "magnetic_heading"))
-      # Temporarily disabled - no true_heading samples in my dev DB yet
-      # |> where_data_source(fetch_data_source!(data_sources, "true_heading"))
-      |> where([s], s.boat_id == ^boat.id)
-      |> where_date(date, timezone)
-      |> order_by([s], s.time)
-      |> select([s], %{time: s.time, angle_rad: s.angle})
-      |> Repo.all()
+    headings = []
+    # Sample
+    # |> where_data_source(fetch_data_source!(data_sources, "magnetic_heading"))
+    # # Temporarily disabled - no true_heading samples in my dev DB yet
+    # # |> where_data_source(fetch_data_source!(data_sources, "true_heading"))
+    # |> where([s], s.boat_id == ^boat.id)
+    # |> where_date(date, timezone)
+    # |> order_by([s], s.time)
+    # |> select([s], %{time: s.time, angle_rad: s.angle})
+    # |> Repo.all()
 
     merged_coordinates =
       collate_closest_samples(positions, headings, fn
@@ -198,24 +153,18 @@ defmodule NauticNet.Playback do
     end
   end
 
-  def fill_latest_samples(data_sources, boat, datetime) do
-    for data_source <- data_sources do
-      # TODO: Optimize this, since it calls N queries
-      sensors =
-        for sensor <- data_source.sensors do
-          %{sensor | latest_sample: get_latest_sample(boat, datetime, data_source, sensor)}
-        end
-
-      %{data_source | sensors: sensors}
+  def fill_latest_samples(signals, datetime) do
+    for signal <- signals do
+      # TODO: Optimize this to do a bulk fetch, so it doesn't call N queries
+      %{signal | latest_sample: get_latest_sample(signal.channel, datetime)}
     end
   end
 
-  def get_latest_sample(%Boat{} = boat, %DateTime{} = datetime, data_source, sensor) do
+  def get_latest_sample(%Channel{} = channel, %DateTime{} = datetime) do
     cutoff_datetime = DateTime.add(datetime, -1, :minute)
 
     Sample
-    |> where_data_source(data_source, sensor)
-    |> where([s], s.boat_id == ^boat.id)
+    |> where_channel(channel)
     |> where([s], s.time < ^datetime and s.time > ^cutoff_datetime)
     |> order_by([s], desc: s.time)
     |> limit(1)
@@ -240,27 +189,11 @@ defmodule NauticNet.Playback do
     where(query, [s], s.time >= ^start_utc and s.time <= ^end_utc)
   end
 
-  def fetch_data_source!(data_sources, data_source_id) do
-    data_sources
-    |> Enum.find(&(&1.id == data_source_id))
-    |> case do
-      %DataSource{} = data_source -> data_source
-      _ -> raise ArgumentError, "invalid data source id #{inspect(data_source_id)}"
-    end
-  end
-
-  defp where_data_source(sample_query, %DataSource{sensors: []}) do
-    where(sample_query, false)
-  end
-
-  defp where_data_source(sample_query, %DataSource{sensors: [sensor | _]} = data_source) do
-    where_data_source(sample_query, data_source, sensor)
-  end
-
-  defp where_data_source(sample_query, %DataSource{} = data_source, sensor) do
+  defp where_channel(sample_query, %Channel{} = channel) do
     sample_query
-    |> where([s], s.sensor_id == ^sensor.id)
-    |> where([s], s.type == ^data_source.type)
+    |> where([s], s.boat_id == ^channel.boat.id)
+    |> where([s], s.sensor_id == ^channel.sensor.id)
+    |> where([s], s.type == ^channel.type)
   end
 
   @doc """
