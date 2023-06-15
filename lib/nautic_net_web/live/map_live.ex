@@ -150,6 +150,21 @@ defmodule NauticNetWeb.MapLive do
         %{signal | visible?: params[signal.channel.id] == "true"}
       end
 
+    # Set track visibility on map if a :position signal's visibility was changed
+    socket =
+      assigns.signals
+      |> Enum.zip(new_signals)
+      |> Enum.reduce(socket, fn {old_signal, new_signal}, socket ->
+        if new_signal.channel.type == :position and old_signal.visible? != new_signal.visible? do
+          push_event(socket, "set_boat_visible", %{
+            boat_id: new_signal.channel.boat.id,
+            visible: new_signal.visible?
+          })
+        else
+          socket
+        end
+      end)
+
     {:noreply, assign(socket, :signals, new_signals)}
   end
 
