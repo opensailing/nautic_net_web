@@ -3,6 +3,7 @@ defmodule NauticNetWeb.MapLive do
 
   alias Phoenix.PubSub
   alias NauticNet.Coordinates
+  alias NauticNet.Data.Sample
   alias NauticNet.Playback
   alias NauticNet.Playback.Channel
   alias NauticNet.Playback.Signal
@@ -26,7 +27,7 @@ defmodule NauticNetWeb.MapLive do
       |> assign(:tracks_visible?, true)
       |> assign(:water_visible?, false)
       |> assign(:is_live?, false)
-      |> assign(:data_sources_modal_visible?, false)
+      |> assign(:signals_modal_visible?, false)
 
       # Water currents
       |> assign(:last_water_event_sent_at, now_ms())
@@ -88,7 +89,7 @@ defmodule NauticNetWeb.MapLive do
 
     new_signals =
       Enum.map(socket.assigns.signals, fn
-        %Signal{channel: %{boat: %{id: ^boat_id}}} = signal ->
+        %Signal{channel: %{type: :position, boat: %{id: ^boat_id}}} = signal ->
           %{signal | visible?: visible?}
 
         signal ->
@@ -143,30 +144,21 @@ defmodule NauticNetWeb.MapLive do
     {:noreply, socket}
   end
 
-  # def handle_event(
-  #       "select_data_sources",
-  #       params,
-  #       %{assigns: %{selected_boat_view: selected_boat_view}} = socket
-  #     ) do
-  #   data_sources =
-  #     for data_source <- selected_boat_view.data_sources do
-  #       next_sensor = Enum.find(data_source.sensors, &(&1.id == params[data_source.id]))
-  #       %{data_source | selected_sensor: next_sensor}
-  #     end
+  def handle_event("change_signal_visibility", params, %{assigns: assigns} = socket) do
+    new_signals =
+      for signal <- assigns.signals do
+        %{signal | visible?: params[signal.channel.id] == "true"}
+      end
 
-  #   new_boat_view = %{selected_boat_view | data_sources: data_sources}
-
-  #   socket = put_boat_view(socket, new_boat_view)
-
-  #   {:noreply, socket}
-  # end
-
-  def handle_event("show_data_sources_modal", _, socket) do
-    {:noreply, assign(socket, :data_sources_modal_visible?, true)}
+    {:noreply, assign(socket, :signals, new_signals)}
   end
 
-  def handle_event("hide_data_sources_modal", _, socket) do
-    {:noreply, assign(socket, :data_sources_modal_visible?, false)}
+  def handle_event("show_signals_modal", _, socket) do
+    {:noreply, assign(socket, :signals_modal_visible?, true)}
+  end
+
+  def handle_event("hide_signals_modal", _, socket) do
+    {:noreply, assign(socket, :signals_modal_visible?, false)}
   end
 
   # PubSub message from NauticNet.Ingest
@@ -352,7 +344,7 @@ defmodule NauticNetWeb.MapLive do
   defp select_boat(socket, nil) do
     socket
     |> assign(:selected_boat, nil)
-    |> assign(:data_sources_modal_visible?, false)
+    |> assign(:signals_modal_visible?, false)
   end
 
   defp select_boat(socket, %Signal{channel: %Channel{boat: boat}}), do: select_boat(socket, boat)
@@ -378,36 +370,26 @@ defmodule NauticNetWeb.MapLive do
     Enum.map(dates, &Date.to_iso8601/1)
   end
 
-  defp sensor_options([]), do: [{"Not Available", ""}]
-
-  defp sensor_options(sensors) do
-    [{"Off", ""}] ++ Enum.map(sensors, &{&1.name, &1.id})
-  end
-
   attr(:label, :string, required: true)
-  attr(:sample, :map, required: true)
-  attr(:field, :atom, required: true, values: [:angle_rad, :depth_m, :speed_m_s])
+  attr(:signal, Signal, required: true)
+  attr(:field, :atom, required: true, values: [:angle, :magnitude])
   attr(:unit, :atom, required: true, values: [:deg, :kn, :ft])
+  attr(:precision, :integer, required: false)
 
-  defp sample_view(assigns) do
+  defp signal_view(assigns) do
+    assigns =
+      assign_new(assigns, :precision, fn ->
+        if assigns.unit == :deg, do: 0, else: 1
+      end)
+
+    channel_unit = if assigns.unit == :deg, do: :rad, else: assigns.signal.channel.unit
+
     display_value =
-      if assigns.sample do
-        case assigns.field do
-          :angle_rad ->
-            assigns.sample.angle
-            |> convert(:rad, assigns.unit)
-            |> :erlang.float_to_binary(decimals: 0)
-
-          :depth_m ->
-            assigns.sample.magnitude
-            |> convert(:m, assigns.unit)
-            |> :erlang.float_to_binary(decimals: 1)
-
-          :speed_m_s ->
-            assigns.sample.magnitude
-            |> convert(:m_s, assigns.unit)
-            |> :erlang.float_to_binary(decimals: 1)
-        end
+      if assigns.signal.latest_sample do
+        assigns.signal.latest_sample
+        |> Map.fetch!(assigns.field)
+        |> convert(channel_unit, assigns.unit)
+        |> :erlang.float_to_binary(decimals: assigns.precision)
       else
         "--"
       end
@@ -417,11 +399,14 @@ defmodule NauticNetWeb.MapLive do
     ~H"""
     <div class="border rounded-lg p-2 flex flex-col">
       <div class="flex justify-between font-semibold text-sm">
-        <div><%= @label %></div>
+        <div class="font-bold"><%= @label %></div>
         <div><%= unit(@unit) %></div>
       </div>
-      <div class="text-center text-4xl flex-grow flex items-center justify-center">
+      <div class="text-center text-4xl flex-grow flex items-center justify-center py-2">
         <%= @display_value %>
+      </div>
+      <div class="text-center text-sm text-gray-400 font-medium">
+        <%= @signal.channel.sensor.name %>
       </div>
     </div>
     """
@@ -512,13 +497,27 @@ defmodule NauticNetWeb.MapLive do
   end
 
   defp boat_signal_count(boat, signals) do
-    length(boat_signals(boat, signals))
+    boat |> boat_signals(signals) |> length()
+  end
+
+  defp visible_boat_signal_count(boat, signals) do
+    boat |> visible_boat_signals(signals) |> length()
   end
 
   defp boat_signals(nil, _signals), do: []
 
   defp boat_signals(boat, signals) do
-    Enum.filter(signals, &(&1.channel.boat.id == boat.id))
+    signals
+    |> Enum.filter(&(&1.channel.boat.id == boat.id))
+    |> Enum.sort_by(& &1.channel.name)
+  end
+
+  defp visible_boat_signals(boat, signals) do
+    boat |> boat_signals(signals) |> Enum.filter(& &1.visible?)
+  end
+
+  defp visible_boat_signals(boat, signals, type) do
+    boat |> boat_signals(signals) |> Enum.filter(&(&1.visible? and &1.channel.type == type))
   end
 
   defp signals_by_channel_name(boat, signals) do

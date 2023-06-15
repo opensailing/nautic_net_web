@@ -80,16 +80,8 @@ defmodule NauticNet.Playback do
         }
       end)
 
+    # TODO: Fetch :true_heading samples on the same date
     headings = []
-    # Sample
-    # |> where_data_source(fetch_data_source!(data_sources, "magnetic_heading"))
-    # # Temporarily disabled - no true_heading samples in my dev DB yet
-    # # |> where_data_source(fetch_data_source!(data_sources, "true_heading"))
-    # |> where([s], s.boat_id == ^boat.id)
-    # |> where_date(date, timezone)
-    # |> order_by([s], s.time)
-    # |> select([s], %{time: s.time, angle_rad: s.angle})
-    # |> Repo.all()
 
     merged_coordinates =
       collate_closest_samples(positions, headings, fn

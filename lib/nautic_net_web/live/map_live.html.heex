@@ -104,11 +104,10 @@
   </.button>
 </div>
 
-<div class="my-4 border rounded-lg px-4 py-2 grid grid-cols-3 gap-4">
-  <div>
-    <h2 class="text-xl font-semibold mb-2">Inspector</h2>
-
-    <form phx-change="select_boat" class="mb-4">
+<div class="my-4 border rounded-lg px-4 py-2">
+  <div class="flex items-center gap-4 mb-2">
+    <h2 class="text-xl font-semibold">Inspector</h2>
+    <form phx-change="select_boat">
       <.input
         type="select"
         id="boat_id"
@@ -118,26 +117,51 @@
         errors={[]}
       />
     </form>
-
-    <.button phx-click="show_data_sources_modal">
-      <%= boat_signal_count(@selected_boat, @signals) %> signals
+    <.button phx-click="show_signals_modal">
+      <%= visible_boat_signal_count(@selected_boat, @signals) %> of <%= boat_signal_count(
+        @selected_boat,
+        @signals
+      ) %> sensors
     </.button>
+  </div>
+  <div class="grid grid-cols-4 gap-4">
+    <%= for signal <- visible_boat_signals(@selected_boat, @signals, :true_heading) do %>
+      <.signal_view label="True Heading" signal={signal} field={:angle} unit={:deg} />
+    <% end %>
+    <%= for signal <- visible_boat_signals(@selected_boat, @signals, :velocity_over_ground) do %>
+      <.signal_view label="COG" signal={signal} field={:angle} unit={:deg} />
+    <% end %>
+    <%= for signal <- visible_boat_signals(@selected_boat, @signals, :speed_through_water) do %>
+      <.signal_view label="Speed Thru Water" signal={signal} field={:magnitude} unit={:kn} />
+    <% end %>
+    <%= for signal <- visible_boat_signals(@selected_boat, @signals, :velocity_over_ground) do %>
+      <.signal_view label="SOG" signal={signal} field={:magnitude} unit={:kn} />
+    <% end %>
+    <%= for signal <- visible_boat_signals(@selected_boat, @signals, :apparent_wind) do %>
+      <.signal_view label="Apparent Wind" signal={signal} field={:angle} unit={:deg} />
+    <% end %>
+    <%= for signal <- visible_boat_signals(@selected_boat, @signals, :water_depth) do %>
+      <.signal_view label="Depth" signal={signal} field={:magnitude} unit={:ft} />
+    <% end %>
   </div>
 </div>
 
-<table class="w-full">
-  <%= for {channel_name, signals} <- signals_by_channel_name(@selected_boat, @signals) do %>
-    <tr class="bg-gray-200">
-      <th class="px-2 py-1 text-center" colspan="99"><%= channel_name %></th>
-    </tr>
-    <%= for signal <- signals do %>
-      <tr>
-        <th class="text-right px-2 py-1 w-1/2"><%= signal.channel.sensor.name %></th>
-        <td>
-          <%= (signal.latest_sample &&
-                 inspect(Map.take(signal.latest_sample, [:magnitude, :angle]))) || "––" %>
-        </td>
-      </tr>
-    <% end %>
-  <% end %>
-</table>
+<%= if @signals_modal_visible? do %>
+  <.modal id="signals_modal" show={true} on_cancel={JS.push("hide_signals_modal")}>
+    <:title>Select Sensors for <%= @selected_boat.name %></:title>
+    <form phx-change="change_signal_visibility">
+      <%= for signal <- boat_signals(@selected_boat, @signals) do %>
+        <fieldset class="my-3">
+          <.input
+            type="checkbox"
+            id={"show_signal_" <> signal.channel.id}
+            name={signal.channel.id}
+            checked={signal.visible?}
+            errors={[]}
+            label={"#{signal.channel.name} - #{signal.channel.sensor.name}"}
+          />
+        </fieldset>
+      <% end %>
+    </form>
+  </.modal>
+<% end %>
