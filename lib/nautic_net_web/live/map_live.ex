@@ -412,11 +412,12 @@ defmodule NauticNetWeb.MapLive do
     Enum.map(dates, &Date.to_iso8601/1)
   end
 
-  attr(:label, :string, required: true)
-  attr(:signal, Signal, required: true)
-  attr(:field, :atom, required: true, values: [:angle, :magnitude])
-  attr(:unit, :atom, required: true, values: [:deg, :kn, :ft])
-  attr(:precision, :integer, required: false)
+  attr :label, :string, required: true
+  attr :signal, Signal, required: true
+  attr :field, :atom, required: true, values: [:angle, :magnitude]
+  attr :unit, :atom, required: true, values: [:deg, :kn, :ft]
+  attr :precision, :integer, required: false
+  attr :show_sensor, :boolean, required: false, default: true
 
   defp signal_view(assigns) do
     assigns =
@@ -447,9 +448,11 @@ defmodule NauticNetWeb.MapLive do
       <div class="text-center text-4xl flex-grow flex items-center justify-center py-2">
         <%= @display_value %>
       </div>
-      <div class="text-center text-sm text-gray-400 font-medium">
-        <%= @signal.channel.sensor.name %>
-      </div>
+      <%= if @show_sensor do %>
+        <div class="text-center text-sm text-gray-400 font-medium">
+          <%= @signal.channel.sensor.name %>
+        </div>
+      <% end %>
     </div>
     """
   end
@@ -560,10 +563,7 @@ defmodule NauticNetWeb.MapLive do
     boat |> boat_signals(signals) |> Enum.filter(&(&1.visible? and &1.channel.type == type))
   end
 
-  defp signals_by_channel_name(boat, signals) do
-    boat
-    |> boat_signals(signals)
-    |> Enum.group_by(& &1.channel.name)
-    |> Enum.sort()
+  defp all_same_sensor?(signals) do
+    signals |> Enum.map(& &1.channel.sensor.id) |> Enum.uniq() |> length() <= 1
   end
 end

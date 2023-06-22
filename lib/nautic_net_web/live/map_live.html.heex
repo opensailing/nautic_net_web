@@ -126,7 +126,7 @@
   </div>
   <div class="grid grid-cols-4 gap-4">
     <%= for signal_view <- @signal_views, signal <- visible_boat_signals(@selected_boat, @signals, signal_view.type) do %>
-      <.signal_view signal={signal} {signal_view} />
+      <.signal_view signal={signal} show_sensor={not all_same_sensor?(@signals)} {signal_view} />
     <% end %>
   </div>
 </div>
