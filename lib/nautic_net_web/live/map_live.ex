@@ -23,7 +23,11 @@ defmodule NauticNetWeb.MapLive do
     %{type: :speed_through_water, label: "Speed Thru Water", field: :magnitude, unit: :kn},
     %{type: :velocity_over_ground, label: "SOG", field: :magnitude, unit: :kn},
     %{type: :apparent_wind, label: "Apparent Wind", field: :angle, unit: :deg},
-    %{type: :water_depth, label: "Depth", field: :magnitude, unit: :ft}
+    %{type: :water_depth, label: "Depth", field: :magnitude, unit: :ft},
+    %{type: :battery, label: "Battery", field: :magnitude, unit: :percent, precision: 0},
+    %{type: :heel, label: "Heel", field: :angle, unit: :deg},
+    %{type: :magnetic_heading, label: "Magnetic Heading", field: :angle, unit: :deg},
+    %{type: :rssi, label: "RSSI", field: :magnitude, unit: :dbm, precision: 0}
   ]
 
   def mount(_params, _session, socket) do
@@ -450,17 +454,15 @@ defmodule NauticNetWeb.MapLive do
     """
   end
 
+  defp unit(:percent), do: "%"
+  defp unit(:dbm), do: "dBm"
   defp unit(:deg), do: "°"
   defp unit(:kn), do: "kn"
   defp unit(:ft), do: "ft"
 
-  defp convert(value, :m_s, :m_s), do: value * 1.0
+  defp convert(value, same, same), do: value * 1.0
   defp convert(value, :m_s, :kn), do: value * 1.94384
-
-  defp convert(value, :rad, :rad), do: value * 1.0
   defp convert(value, :rad, :deg), do: value * 180 / :math.pi()
-
-  defp convert(value, :m, :m), do: value * 1.0
   defp convert(value, :m, :ft), do: value * 3.28084
 
   defp now_ms, do: System.monotonic_time(:millisecond)
