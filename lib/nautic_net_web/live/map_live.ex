@@ -3,7 +3,6 @@ defmodule NauticNetWeb.MapLive do
 
   alias Phoenix.PubSub
   alias NauticNet.Coordinates
-  alias NauticNet.Data.Sample
   alias NauticNet.Playback
   alias NauticNet.Playback.Channel
   alias NauticNet.Playback.Signal
@@ -17,6 +16,15 @@ defmodule NauticNetWeb.MapLive do
     "min_lon" => -71.0473,
     "max_lon" => -70.8557
   }
+
+  @signal_views [
+    %{type: :true_heading, label: "True Heading", field: :angle, unit: :deg},
+    %{type: :velocity_over_ground, label: "COG", field: :angle, unit: :deg},
+    %{type: :speed_through_water, label: "Speed Thru Water", field: :magnitude, unit: :kn},
+    %{type: :velocity_over_ground, label: "SOG", field: :magnitude, unit: :kn},
+    %{type: :apparent_wind, label: "Apparent Wind", field: :angle, unit: :deg},
+    %{type: :water_depth, label: "Depth", field: :magnitude, unit: :ft}
+  ]
 
   def mount(_params, _session, socket) do
     if connected?(socket), do: PubSub.subscribe(NauticNet.PubSub, "leaflet")
@@ -35,6 +43,7 @@ defmodule NauticNetWeb.MapLive do
 
       # Data
       |> assign(:signals, [])
+      |> assign(:signal_views, @signal_views)
 
       # Map
       |> assign(:bounding_box, @hingham_bounding_box)

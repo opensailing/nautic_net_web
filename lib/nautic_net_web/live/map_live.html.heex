@@ -125,23 +125,13 @@
     </.button>
   </div>
   <div class="grid grid-cols-4 gap-4">
-    <%= for signal <- visible_boat_signals(@selected_boat, @signals, :true_heading) do %>
-      <.signal_view label="True Heading" signal={signal} field={:angle} unit={:deg} />
-    <% end %>
-    <%= for signal <- visible_boat_signals(@selected_boat, @signals, :velocity_over_ground) do %>
-      <.signal_view label="COG" signal={signal} field={:angle} unit={:deg} />
-    <% end %>
-    <%= for signal <- visible_boat_signals(@selected_boat, @signals, :speed_through_water) do %>
-      <.signal_view label="Speed Thru Water" signal={signal} field={:magnitude} unit={:kn} />
-    <% end %>
-    <%= for signal <- visible_boat_signals(@selected_boat, @signals, :velocity_over_ground) do %>
-      <.signal_view label="SOG" signal={signal} field={:magnitude} unit={:kn} />
-    <% end %>
-    <%= for signal <- visible_boat_signals(@selected_boat, @signals, :apparent_wind) do %>
-      <.signal_view label="Apparent Wind" signal={signal} field={:angle} unit={:deg} />
-    <% end %>
-    <%= for signal <- visible_boat_signals(@selected_boat, @signals, :water_depth) do %>
-      <.signal_view label="Depth" signal={signal} field={:magnitude} unit={:ft} />
+    <%= for signal_view <- @signal_views, signal <- visible_boat_signals(@selected_boat, @signals, signal_view.type) do %>
+      <.signal_view
+        signal={signal}
+        label={signal_view.label}
+        field={signal_view.field}
+        unit={signal_view.unit}
+      />
     <% end %>
   </div>
 </div>
