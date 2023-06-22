@@ -563,7 +563,11 @@ defmodule NauticNetWeb.MapLive do
     boat |> boat_signals(signals) |> Enum.filter(&(&1.visible? and &1.channel.type == type))
   end
 
-  defp all_same_sensor?(signals) do
-    signals |> Enum.map(& &1.channel.sensor.id) |> Enum.uniq() |> length() <= 1
+  defp boat_sensor_count(boat, signals) do
+    boat
+    |> boat_signals(signals)
+    |> Enum.map(& &1.channel.sensor.id)
+    |> Enum.uniq()
+    |> length()
   end
 end

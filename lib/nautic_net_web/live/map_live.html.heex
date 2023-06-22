@@ -118,22 +118,32 @@
       />
     </form>
     <.button phx-click="show_signals_modal">
-      <%= visible_boat_signal_count(@selected_boat, @signals) %> of <%= boat_signal_count(
+      <%= if visible_boat_signal_count(@selected_boat, @signals) != boat_signal_count(@selected_boat, @signals) do %>
+        <%= visible_boat_signal_count(@selected_boat, @signals) %> of
+      <% end %>
+      <%= boat_signal_count(
         @selected_boat,
         @signals
-      ) %> sensors
+      ) %> signals
+      <%= if boat_sensor_count(@selected_boat, @signals) > 1 do %>
+        from <%= boat_sensor_count(@selected_boat, @signals) %> sensors
+      <% end %>
     </.button>
   </div>
   <div class="grid grid-cols-4 gap-4">
     <%= for signal_view <- @signal_views, signal <- visible_boat_signals(@selected_boat, @signals, signal_view.type) do %>
-      <.signal_view signal={signal} show_sensor={not all_same_sensor?(@signals)} {signal_view} />
+      <.signal_view
+        signal={signal}
+        show_sensor={boat_sensor_count(@selected_boat, @signals) > 1}
+        {signal_view}
+      />
     <% end %>
   </div>
 </div>
 
 <%= if @signals_modal_visible? do %>
   <.modal id="signals_modal" show={true} on_cancel={JS.push("hide_signals_modal")}>
-    <:title>Select Sensors for <%= @selected_boat.name %></:title>
+    <:title>Select Signals for <%= @selected_boat.name %></:title>
     <form phx-change="change_signal_visibility">
       <%= for signal <- boat_signals(@selected_boat, @signals) do %>
         <fieldset class="my-3">

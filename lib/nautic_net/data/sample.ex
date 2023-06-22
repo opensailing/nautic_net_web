@@ -149,6 +149,9 @@ defmodule NauticNet.Data.Sample do
        },
        %{
          type: :heel,
+         # Heel is 0 to 1800 (0.0° to 180.0°) so we subtract 900 (90.0°) to normalize it so that
+         # 0° is straight-up towards the sky, negative heel is leaning towards port, and positive heel
+         # is leaning towards starboard
          angle: Protobuf.Convert.decode_unit(rover_data.heel - 900, :ddeg, :rad)
        },
        %{
