@@ -289,14 +289,28 @@ defmodule NauticNetWeb.MapLive do
   # end
 
   defp assign_dates_and_boats(socket) do
-    [first_date | _] = dates = Playback.list_all_dates(socket.assigns.timezone)
+    dates = Playback.list_all_dates(socket.assigns.timezone)
 
     socket
     |> assign(:dates, dates)
-    |> select_date(first_date)
+    |> select_date(List.last(dates))
   end
 
   # Set the date, boats, and data sources
+  defp select_date(socket, nil) do
+    now = DateTime.utc_now()
+
+    socket
+    |> assign(:selected_date, nil)
+    |> unsubscribe_from_boats()
+    |> assign(:signals, [])
+    |> select_boat(nil)
+    |> assign(:first_sample_at, now)
+    |> assign(:last_sample_at, now)
+    |> assign(:range_start_at, now)
+    |> assign(:range_end_at, now)
+  end
+
   defp select_date(%{assigns: assigns} = socket, date) do
     signals =
       date
