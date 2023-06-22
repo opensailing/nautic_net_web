@@ -149,7 +149,7 @@ defmodule NauticNet.Data.Sample do
        },
        %{
          type: :heel,
-         angle: Protobuf.Convert.decode_unit(rover_data.heel - 90, :ddeg, :rad)
+         angle: Protobuf.Convert.decode_unit(rover_data.heel - 900, :ddeg, :rad)
        },
        %{
          type: :velocity_over_ground,
