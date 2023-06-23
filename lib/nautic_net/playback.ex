@@ -63,11 +63,11 @@ defmodule NauticNet.Playback do
 
   Keys: :time, :latitude, :longitude, :true_heading
   """
-  def list_coordinates(%Channel{} = channel, %Date{} = date, timezone) do
+  def list_coordinates(%Channel{} = channel, date_or_interval, timezone) do
     positions =
       Sample
       |> where_channel(channel)
-      |> where_date(date, timezone)
+      |> where_date(date_or_interval, timezone)
       |> order_by([s], s.time)
       |> select([s], {s.time, s.position})
       |> Repo.all()
@@ -209,6 +209,10 @@ defmodule NauticNet.Playback do
 
   # Convert the date to a pair of DateTimes that represent the start and end of the day in the desired
   # timezone, but then convert to UTC for easy interpolation into the database
+  defp where_date(query, {start_utc, end_utc}, "Etc/UTC") do
+    where(query, [s], s.time >= ^start_utc and s.time <= ^end_utc)
+  end
+
   defp where_date(query, %Date{} = date, timezone) do
     start_utc =
       date
@@ -222,7 +226,7 @@ defmodule NauticNet.Playback do
       |> Timex.end_of_day()
       |> Timex.to_datetime("Etc/UTC")
 
-    where(query, [s], s.time >= ^start_utc and s.time <= ^end_utc)
+    where_date(query, {start_utc, end_utc}, "Etc/UTC")
   end
 
   defp where_channel(sample_query, %Channel{} = channel) do

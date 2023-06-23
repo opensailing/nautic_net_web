@@ -2,6 +2,7 @@ defmodule NauticNet.Data.Sample do
   use NauticNet.Schema
 
   alias NauticNet.Data.Sensor
+  alias NauticNet.Playback.Channel
   alias NauticNet.Protobuf
   alias NauticNet.Racing.Boat
 
@@ -184,4 +185,13 @@ defmodule NauticNet.Data.Sample do
   end
 
   defp deg2rad(deg), do: deg * :math.pi() / 180
+
+  @doc """
+  Returns true if a Sample is aplicable to a Channel.
+  """
+  def in_channel?(%__MODULE__{} = sample, %Channel{} = channel) do
+    sample.boat_id == channel.boat.id and
+      sample.sensor_id == channel.sensor.id and
+      sample.type == channel.type
+  end
 end

@@ -10,12 +10,12 @@
         value={@selected_date}
         options={date_options(@dates)}
         errors={[]}
-        disabled={@is_live?}
+        disabled={@live?}
       />
     </form>
 
-    <form phx-change="is_live_changed">
-      <.input type="checkbox" id="is_live" name="is_live" checked={@is_live?} label="Live" />
+    <form phx-change="live_changed">
+      <.input type="checkbox" id="live" name="live" checked={@live?} label="Live" />
     </form>
     <form phx-change="water_visible_changed">
       <.input
@@ -32,6 +32,7 @@
     <%= boat_count(@signals) %> <%= if boat_count(@signals) == 1, do: "boat", else: "boats" %>
   </div>
 </div>
+
 
 <div class="my-6 px-4">
   <div
@@ -59,11 +60,11 @@
     value={DateTime.to_unix(@inspect_at)}
     min={DateTime.to_unix(@range_start_at)}
     max={DateTime.to_unix(@range_end_at)}
-    disabled={@is_live?}
+    disabled={@live?}
   />
-
-  <div><%= @inspect_at %></div>
 </form>
+
+<div><%= @inspect_at %></div>
 
 <table>
   <%= for %{channel: %{boat: boat}} = signal <- position_signals(@signals) do %>

@@ -38,7 +38,7 @@ defmodule NauticNetWeb.MapLive do
       # UI toggles
       |> assign(:tracks_visible?, true)
       |> assign(:water_visible?, false)
-      |> assign(:is_live?, false)
+      |> assign(:live?, false)
       |> assign(:signals_modal_visible?, false)
 
       # Water currents
@@ -127,15 +127,17 @@ defmodule NauticNetWeb.MapLive do
     {:noreply, select_boat(socket, boat_id)}
   end
 
-  def handle_event("is_live_changed", %{"is_live" => is_live_param}, socket) do
-    is_live? = is_live_param == "true"
+  def handle_event("live_changed", %{"live" => live_param}, socket) do
+    live? = live_param == "true"
+
+    if live?, do: send(self(), :live_tick)
 
     {
       :noreply,
       socket
-      |> assign(:is_live?, is_live?)
+      |> assign(:live?, live?)
       # RangeSlider state must be updated via JS hook because it has phx-update="ignore"
-      |> push_event("set_enabled", %{id: "range-slider", enabled: not is_live?})
+      |> push_event("set_enabled", %{id: "range-slider", enabled: not live?})
       # TODO: More things
     }
   end
@@ -190,14 +192,46 @@ defmodule NauticNetWeb.MapLive do
   end
 
   # PubSub message from NauticNet.Ingest
-  def handle_info({:new_samples, samples}, socket) do
-    # Only care about samples that are "today"
-    samples =
-      Enum.filter(samples, fn s -> DateTime.to_date(s.time) == socket.assigns.selected_date end)
+  # def handle_info({:new_samples, samples}, %{assigns: %{live?: true} = assigns} = socket) do
+  #   # Only care about samples that are "today"
+  #   samples = Enum.filter(samples, fn s -> DateTime.to_date(s.time) == assigns.selected_date end)
 
-    IO.inspect("#{length(samples)} new samples")
-    # TODO: Push samples to JS
+  #   # Update the latest_sample for applicable signals
+  #   signals =
+  #     for signal <- assigns.signals do
+  #       if new_sample = Enum.find(samples, &Sample.in_channel?(&1, signal.channel)) do
+  #         %{signal | latest_sample: new_sample}
+  #       else
+  #         signal
+  #       end
+  #     end
 
+  #   # for %{type: :position} = position_sample <- samples do
+  #   # TODO: Push coordinate samples to JS
+  #   # end
+
+  #   {:noreply, assign(socket, :signals, signals)}
+  # end
+
+  # def handle_info({:new_samples, _samples}, %{assigns: %{live?: false}} = socket) do
+  #   # TODO: Something??
+
+  #   {:noreply, socket}
+  # end
+
+  def handle_info({:new_samples, _}, socket) do
+    {:noreply, socket}
+  end
+
+  # Set to "now" if Live is enabled
+  def handle_info(:live_tick, %{assigns: %{live?: true}} = socket) do
+    Process.send_after(self(), :live_tick, :timer.seconds(1))
+
+    {:noreply, set_live_position(socket)}
+  end
+
+  # Ignore if Live mode has been disabled
+  def handle_info(:live_tick, %{assigns: %{live?: false}} = socket) do
     {:noreply, socket}
   end
 
@@ -249,6 +283,35 @@ defmodule NauticNetWeb.MapLive do
     |> assign(:signals, new_signals)
     |> assign(:inspect_at, new_inspect_at)
     |> push_map_state()
+  end
+
+  defp set_live_position(socket) do
+    end_at = DateTime.utc_now()
+    start_at = DateTime.add(end_at, -3600, :second)
+
+    new_signals = Playback.fill_latest_samples(socket.assigns.signals, end_at)
+
+    socket
+    |> assign(:signals, new_signals)
+    |> assign(:inspect_at, end_at)
+    # |> assign(:first_sample_at, start_at)
+    |> assign(:last_sample_at, end_at)
+    |> assign(:range_start_at, start_at)
+    |> assign(:range_end_at, end_at)
+    |> push_map_state()
+    |> push_live_coordinates()
+
+    # |> push_event("configure", %{
+    #   id: "range-slider",
+    #   min: DateTime.to_unix(start_at),
+    #   max: DateTime.to_unix(end_at)
+    # })
+  end
+
+  defp push_live_coordinates(socket) do
+    # TODO: Push new coordinates
+    # coordinates = Playback.list_coordinates(channel, date, assigns.timezone)
+    socket
   end
 
   # defp __update_water__(%{assigns: assigns} = socket, params) do
@@ -412,12 +475,12 @@ defmodule NauticNetWeb.MapLive do
     Enum.map(dates, &Date.to_iso8601/1)
   end
 
-  attr :label, :string, required: true
-  attr :signal, Signal, required: true
-  attr :field, :atom, required: true, values: [:angle, :magnitude]
-  attr :unit, :atom, required: true, values: [:deg, :kn, :ft]
-  attr :precision, :integer, required: false
-  attr :show_sensor, :boolean, required: false, default: true
+  attr(:label, :string, required: true)
+  attr(:signal, Signal, required: true)
+  attr(:field, :atom, required: true, values: [:angle, :magnitude])
+  attr(:unit, :atom, required: true, values: [:deg, :kn, :ft])
+  attr(:precision, :integer, required: false)
+  attr(:show_sensor, :boolean, required: false, default: true)
 
   defp signal_view(assigns) do
     assigns =
@@ -483,6 +546,11 @@ defmodule NauticNetWeb.MapLive do
     |> Float.parse()
     |> elem(0)
     |> trunc()
+    |> parse_unix_datetime(timezone)
+  end
+
+  defp parse_unix_datetime(param, timezone) when is_integer(param) do
+    param
     |> DateTime.from_unix!()
     |> Timex.to_datetime(timezone)
   end
