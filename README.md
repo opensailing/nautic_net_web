@@ -5,15 +5,20 @@
 ```sh
 asdf install
 
-brew install netcdf-cxx
+# This is probably not needed anymore, but still needs validation
+# brew install netcdf-cxx
 
-npm install --prefix assets
+cd assets && yarn install && cd ..
 
 mix deps.get
 mix compile # if exla fails, try it again (potential race condition)
 
 docker-compose up
 mix ecto.setup
+mix assets.deploy
+
+# And run with
+mix phx.server
 ```
 
 ## Debugging the Docker build

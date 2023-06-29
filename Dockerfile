@@ -22,7 +22,7 @@ FROM ${BUILDER_IMAGE} as builder
 
 # install build dependencies
 RUN apt-get update -y && \
-  apt-get install -y cmake build-essential git curl wget libssl-dev && \
+  apt-get install -y cmake build-essential git curl && \
   apt-get clean && \
   rm -f /var/lib/apt/lists/*_*
 
@@ -31,10 +31,6 @@ RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - && \
   echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list && \
   apt-get update -y && \
   apt-get install -y yarn
-
-# install Rust non-interactively, and put it in the $PATH so the netcdf Elixir dep can find it
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain 1.66.1
-ENV PATH="/root/.cargo/bin:$PATH"
 
 # prepare build dir
 WORKDIR /app
