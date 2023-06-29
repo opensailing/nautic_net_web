@@ -20,8 +20,8 @@ defmodule NauticNet.NetCDF do
 
         Logger.info("Getting speed and direction tensors")
 
-        start_mjd = Cldr.Calendar.modified_julian_day(start_date)
-        end_mjd = Cldr.Calendar.modified_julian_day(end_date)
+        start_mjd = modified_julian_day(start_date)
+        end_mjd = modified_julian_day(end_date)
 
         {t, speed, direction} =
           abs_and_direction_tensors(
@@ -304,5 +304,30 @@ defmodule NauticNet.NetCDF do
     lon = lon |> Nx.take(take_idx) |> Nx.slice_along_axis(0, count)
 
     Nx.stack([lon, lat, direction, speed], axis: 1)
+  end
+
+  # extracted from ex_cldr_calendars
+  @mjd_epoch_in_iso_days 678_941
+  defp modified_julian_day(%DateTime{} = datetime) do
+    date = DateTime.to_date(datetime)
+    {seconds, _microseconds} = datetime |> DateTime.to_time() |> Time.to_seconds_after_midnight()
+
+    mjd_from_date_and_seconds(date, seconds)
+  end
+
+  defp modified_julian_day(%Date{} = date) do
+    mjd_from_date_and_seconds(date, 0)
+  end
+
+  defp mjd_from_date_and_seconds(date, seconds) do
+    mjd_integer_part = date_to_iso_days(date) - @mjd_epoch_in_iso_days
+    mjd_offset = seconds * 1000 / :timer.hours(24)
+
+    mjd_integer_part + mjd_offset
+  end
+
+  defp date_to_iso_days(date) do
+    %{year: year, month: month, day: day, calendar: calendar} = date
+    calendar.date_to_iso_days(year, month, day)
   end
 end
