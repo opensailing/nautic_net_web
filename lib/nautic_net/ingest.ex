@@ -113,12 +113,12 @@ defmodule NauticNet.Ingest do
       |> case do
         nil ->
           create_sensor!(boat, %{
-            name: network_device.name,
+            name: sensor_name(network_device.name),
             hardware_identifier: encode_sensor_identifier(network_device.hw_id)
           })
 
         %Sensor{} = sensor ->
-          update_sensor!(sensor, %{name: network_device.name})
+          update_sensor!(sensor, %{name: sensor_name(network_device.name)})
       end
     end
 
@@ -149,5 +149,9 @@ defmodule NauticNet.Ingest do
     Phoenix.PubSub.broadcast(NauticNet.PubSub, "boat:#{boat.id}", {:new_samples, samples})
 
     :ok
+  end
+
+  defp sensor_name(name) do
+    if name |> to_string() |> String.trim() == "", do: "Unknown Device", else: name
   end
 end
