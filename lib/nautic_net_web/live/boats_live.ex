@@ -7,18 +7,10 @@ defmodule NauticNetWeb.BoatsLive do
   def mount(_, _, socket) do
     boats_stats = Racing.list_boats_stats()
 
-    # for %{boat: boat} <- boats_stats do
-    #   NauticNet.PubSub.subscribe_to_boat(boat)
-    # end
-
     socket = assign(socket, boats_stats: boats_stats)
 
     {:ok, socket}
   end
-
-  # def handle_info(msg, socket) do
-
-  # end
 
   defp status_label(%{boat_stats: %BoatStats{} = boat_stats} = assigns) do
     online? =
