@@ -27,7 +27,8 @@ defmodule NauticNet.Ingest do
 
   defp insert_data_set(data_set) do
     # Find the boat
-    boat = Racing.get_or_create_boat_by_identifier(data_set.boat_identifier)
+    boat = Racing.get_or_create_boat_by_identifier(data_set.boat_identifier, [])
+    boat = Racing.flag_boat_as_alive(boat)
 
     # Create missing sensor rows and store a LUT in memory for quick access
     sensor_id_lookup = create_missing_sensors(boat, data_set)

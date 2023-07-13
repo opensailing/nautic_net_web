@@ -10,6 +10,7 @@ defmodule NauticNet.Racing.Boat do
 
     field :name, :string
     field :identifier, :string
+    field :alive_at, :utc_datetime
 
     timestamps()
   end

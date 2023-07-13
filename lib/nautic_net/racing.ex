@@ -33,4 +33,10 @@ defmodule NauticNet.Racing do
     |> Boat.changeset(params)
     |> Repo.insert()
   end
+
+  def flag_boat_as_alive(boat) do
+    boat
+    |> Ecto.Changeset.change(alive_at: DateTime.truncate(DateTime.utc_now(), :second))
+    |> Repo.update!()
+  end
 end
