@@ -36,7 +36,7 @@ defmodule NauticNetWeb.BoatsLive do
           assign(assigns, text: "Heartbeat", class: "bg-yellow-600")
 
         not online? ->
-          assign(assigns, text: "Offline", class: "bg-red-600")
+          assign(assigns, text: "Offline", class: "bg-gray-400")
       end
 
     ~H"""

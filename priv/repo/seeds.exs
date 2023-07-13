@@ -9,5 +9,5 @@ alias NauticNet.Racing
     center: %Geo.Point{coordinates: {-70.9173206, 42.2823685}}
   })
 
-{:ok, _boat} = Racing.create_boat(%{name: "Edmund Fitzgerald", identifier: "GRDN"})
-{:ok, _boat} = Racing.create_boat(%{name: "R.M.S. Titanic", identifier: "SOS"})
+{:ok, _boat} = Racing.create_boat(%{name: "Edmund Fitzgerald", identifier: "GRDN", serial: "000"})
+{:ok, _boat} = Racing.create_boat(%{name: "R.M.S. Titanic", identifier: "SOS", serial: "001"})
