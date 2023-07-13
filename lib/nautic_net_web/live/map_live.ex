@@ -581,7 +581,7 @@ defmodule NauticNetWeb.MapLive do
 
   defp subscribe_to_boats(socket) do
     for boat <- boats(socket.assigns.signals) do
-      Phoenix.PubSub.subscribe(NauticNet.PubSub, "boat:#{boat.id}")
+      NauticNet.PubSub.subscribe_to_boat(boat)
     end
 
     socket
@@ -589,7 +589,7 @@ defmodule NauticNetWeb.MapLive do
 
   defp unsubscribe_from_boats(socket) do
     for boat <- boats(socket.assigns.signals) do
-      Phoenix.PubSub.unsubscribe(NauticNet.PubSub, "boat:#{boat.id}")
+      NauticNet.PubSub.unsubscribe_from_boat(boat)
     end
 
     socket

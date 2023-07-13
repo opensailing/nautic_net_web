@@ -24,6 +24,7 @@ defmodule NauticNetWeb.Router do
     get "/home", PageController, :home
 
     live "/", MapLive
+    live "/boats", BoatsLive
   end
 
   scope "/api", NauticNetWeb.API do
