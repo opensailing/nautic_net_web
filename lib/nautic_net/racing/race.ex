@@ -1,4 +1,5 @@
 defmodule NauticNet.Racing.Race do
+  @moduledoc "Schema module for races"
   use NauticNet.Schema
 
   schema "races" do

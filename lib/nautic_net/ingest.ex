@@ -52,17 +52,18 @@ defmodule NauticNet.Ingest do
 
   # Inerts one or many DataPoints with the appropriate sample types
   defp sample_attr_rows(protobuf_data_point, boat_id, sensor_id) do
-    with {:ok, list_of_sample_attrs} <-
-           Sample.attrs_from_protobuf_sample(protobuf_data_point.sample) do
-      Enum.map(list_of_sample_attrs, fn attrs ->
-        Map.merge(attrs, %{
-          boat_id: boat_id,
-          sensor_id: sensor_id,
-          time: Util.protobuf_timestamp_to_datetime(protobuf_data_point.timestamp)
-        })
-      end)
-    else
-      _ -> []
+    case Sample.attrs_from_protobuf_sample(protobuf_data_point.sample) do
+      {:ok, list_of_sample_attrs} ->
+        Enum.map(list_of_sample_attrs, fn attrs ->
+          Map.merge(attrs, %{
+            boat_id: boat_id,
+            sensor_id: sensor_id,
+            time: Util.protobuf_timestamp_to_datetime(protobuf_data_point.timestamp)
+          })
+        end)
+
+      _ ->
+        []
     end
   end
 
