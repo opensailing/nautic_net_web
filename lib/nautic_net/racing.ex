@@ -22,6 +22,9 @@ defmodule NauticNet.Racing do
   ### Boats
 
   defmodule BoatStats do
+    @moduledoc """
+    Represents a row of data for presentation on /boats page.
+    """
     @derive {Phoenix.Param, key: :boat_id}
     defstruct [:boat_id, :boat, :sample_count, :sensor_count, :recent_sample_count]
   end
