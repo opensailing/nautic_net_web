@@ -38,3 +38,5 @@ npm-debug.log
 # dialyzer Persistent Lookup Table files
 /priv/plts/*.plt
 /priv/plts/*.plt.hash
+
+/tmp/
