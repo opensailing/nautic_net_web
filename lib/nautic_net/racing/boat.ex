@@ -21,7 +21,7 @@ defmodule NauticNet.Racing.Boat do
   def changeset(boat, attrs) do
     boat
     |> cast(attrs, [:name, :identifier, :serial, :alive_at])
-    |> validate_required([:name, :identifier, :serial, :alive_at])
+    |> validate_required([:name, :identifier, :serial])
     |> unique_constraint(:identifier)
   end
 end
