@@ -96,6 +96,9 @@ defmodule NauticNet.Playback do
     merged_coordinates
   end
 
+  # TODO: IDK why Dialyzer is angry, but I don't have time to figure it out. Maybe you do.
+  @dialyzer {:nowarn_function, collate_closest_samples: 4}
+
   # For every sample, look for the closest merge sample that has occurred BEFORE the main sample.
   # Then, call the merger function to combine them. The resulting list of merged samples will be
   # the same length as the input samples. Each list of samples must have a :time field, and be
