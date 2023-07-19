@@ -1,4 +1,7 @@
 defmodule NauticNet.Seeds do
+  @moduledoc """
+  Inserts data into the database for local development.
+  """
   import Ecto.Query
 
   alias NauticNet.Racing
