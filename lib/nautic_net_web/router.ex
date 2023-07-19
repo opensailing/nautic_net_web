@@ -7,7 +7,9 @@ defmodule NauticNetWeb.Router do
     plug :fetch_live_flash
     plug :put_root_layout, {NauticNetWeb.Layouts, :root}
     plug :protect_from_forgery
-    plug :put_secure_browser_headers, %{"content-security-policy" => "default-src 'self'"}
+
+    # Disabling for now... this breaks Leaflet
+    # plug :put_secure_browser_headers, %{"content-security-policy" => "default-src 'self' https://*.tile.openstreetmap.org https://unkpg.com"}
   end
 
   pipeline :api do
@@ -24,6 +26,7 @@ defmodule NauticNetWeb.Router do
     get "/home", PageController, :home
 
     live "/", MapLive
+    live "/boats", BoatsLive
   end
 
   scope "/api", NauticNetWeb.API do

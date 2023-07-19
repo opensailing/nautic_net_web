@@ -1,0 +1,11 @@
+<.table id="boats_stats" rows={@boats_stats}>
+  <:col :let={row} label="Name"><%= row.boat.name %></:col>
+  <:col :let={row} label="Status">
+    <.status_label boat_stats={row} />
+  </:col>
+  <:col :let={row} label="Serial"><%= row.boat.serial || "None" %></:col>
+  <:col :let={row} label="Identifier"><%= row.boat.identifier %></:col>
+  <:col :let={row} label="Active At"><%= row.boat.alive_at || "Never" %></:col>
+  <:col :let={row} label="Sensors"><%= row.sensor_count %></:col>
+  <:col :let={row} label="Samples"><%= row.sample_count %></:col>
+</.table>

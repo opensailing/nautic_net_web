@@ -44,6 +44,7 @@ defmodule NauticNet.MixProject do
       # Phoenix
       {:phoenix, "~> 1.7.0-rc.0", override: true},
       {:phoenix_ecto, "~> 4.4"},
+      {:ecto, "~> 3.9"},
       {:ecto_sql, "~> 3.6"},
       {:postgrex, ">= 0.0.0"},
       {:phoenix_html, "~> 3.0"},

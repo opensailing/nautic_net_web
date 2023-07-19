@@ -11,6 +11,11 @@ defmodule NauticNet.Util do
     )
   end
 
+  # If the timestamp is zero, then the uploading device didn't have a clock, so the best we can do is assign it to "now"
+  def protobuf_timestamp_to_datetime(%Google.Protobuf.Timestamp{nanos: 0, seconds: 0}) do
+    DateTime.utc_now()
+  end
+
   def protobuf_timestamp_to_datetime(%Google.Protobuf.Timestamp{} = timestamp) do
     (timestamp.seconds * 1_000_000)
     |> DateTime.from_unix!(:microsecond)

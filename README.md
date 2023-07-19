@@ -73,6 +73,9 @@ fly secrets set \
 
 # Cross your fingers and toes...
 fly deploy
+
+# Allocate a static IPv4 address for UDP to work
+fly ips allocate-v4
 ```
 
 Answers for the prompts from `fly launch`:

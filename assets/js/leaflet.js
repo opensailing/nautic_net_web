@@ -79,197 +79,294 @@ const CustomIconMarker = L.CircleMarker.extend({
   },
 });
 
-export function interactiveMap(hook) {
-  let divElement = hook.el;
-  hook.previousLayer = undefined;
+class BoatView {
+  boatId = null;
+  map = null;
+  marker = null;
+  polyline = null;
+  trackCoordinates = [];
 
-  var map = Leaflet.map(divElement, { preferCanvas: true }).setView(
-    [42.27, -70.997],
-    14
-  );
+  constructor(map, boatId, trackCoordinates, trackColor) {
+    this.boatId = boatId;
+    this.map = map;
+    this.trackCoordinates = trackCoordinates;
+    this.marker = Leaflet.marker([0, 0]).addTo(map);
+    this.polyline = Leaflet.polyline([], { color: trackColor }).addTo(map);
+  }
 
-  var polyline = Leaflet.polyline([], { color: "red" }).addTo(map);
-  let trackCoordinates = [];
-
-  Leaflet.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "© OpenStreetMap",
-  }).addTo(map);
-
-  var marker = L.marker([42.27, -70.997]).addTo(map);
-  marker.bindPopup("Boat Node");
-
-  map.on("zoomlevelschange resize load moveend viewreset", (e) => {
-    const {
-      _southWest: { lat: min_lat, lng: min_lon },
-      _northEast: { lat: max_lat, lng: max_lon },
-    } = map.getBounds();
-
-    const bounds = { min_lat, max_lat, min_lon, max_lon };
-
-    const position = document.getElementById("position").value;
-    const zoom_level = map.getZoom();
-    hook.pushEvent("change_bounds", {
-      bounds,
-      position,
-      zoom_level,
-    });
-  });
-
-  window.addEventListener("handleSetPosition", (e) => {
-    // "set_position";
-    const position = document.getElementById("position").value;
-    hook.pushEvent("set_position", { position, zoom_level: map.getZoom() });
-  });
-
-  window.addEventListener(`phx:track_coordinates`, (e) => {
-    const {
-      detail: { coordinates },
-    } = e;
-
-    trackCoordinates = coordinates;
-  });
-
-  window.addEventListener(`phx:marker_coordinates`, (e) => {
-    const {
-      detail: { latitude, longitude },
-    } = e;
-
-    marker.setLatLng({ lat: latitude, lng: longitude });
-  });
-
-  window.addEventListener(`phx:marker_position`, (e) => {
-    const {
-      detail: { position },
-    } = e;
-
-    const [latitude, longitude] = trackCoordinates[position];
-    marker.setLatLng({ lat: latitude, lng: longitude });
-    polyline.setLatLngs(trackCoordinates.slice(0, position));
-  });
-
-  window.addEventListener("animateTime", ({ detail: { play } }) => {
-    hook.timeoutHandler && clearInterval(hook.timeoutHandler);
-
-    if (play) {
-      const fps = 30;
-
-      const timeoutHandler = setInterval(() => {
-        const posElement = window.document.getElementById("position");
-        const inc = 30;
-
-        if (!posElement) {
-          clearInterval(timeoutHandler);
-          return;
-        }
-
-        if (
-          parseInt(posElement.value) >=
-          parseInt(posElement.max) - (inc + 1)
-        ) {
-          clearInterval(timeoutHandler);
-        } else {
-          posElement.stepUp(inc);
-          const position = posElement.value;
-          hook.pushEvent("set_position", {
-            position,
-            zoom_level: map.getZoom(),
-          });
-        }
-      }, 1000 / fps);
-
-      hook.timeoutHandler = timeoutHandler;
-    }
-  });
-
-  window.addEventListener(`phx:map_view`, (e) => {
-    map.setView([e.detail.latitude, e.detail.longitude], 14);
-  });
-
-  window.addEventListener(`phx:clear_polyline`, (_e) => {
-    polyline.setLatLngs([]);
-  });
-
-  window.addEventListener(`phx:toggle_track`, (e) => {
-    if (e.detail.value) {
-      polyline.addTo(map);
+  setVisible(visible) {
+    if (visible) {
+      this.marker.addTo(this.map);
+      this.polyline.addTo(this.map);
     } else {
-      polyline.remove();
+      this.marker.removeFrom(this.map);
+      this.polyline.removeFrom(this.map);
     }
-  });
+  }
 
-  window.addEventListener(`phx:add_current_markers`, (e) => {
-    const markerBaseColor = interpolateColors(0);
+  setTime(startTime, endTime, inspectTime) {
+    const newCoords = this.trackCoordinates.filter(
+      (c) => c.time >= startTime && c.time <= inspectTime
+    );
+    const lastCoord = newCoords[newCoords.length - 1];
 
-    const canvasRenderer = L.canvas({ padding: 0 });
+    this.polyline.setLatLngs(newCoords.map((c) => [c.lat, c.lng]));
 
-    const geojsonMarkerOptions = {
-      radius: 0.5,
-      fillColor: markerBaseColor,
-      color: markerBaseColor,
-      weight: 1,
-      opacity: 1,
-      fillOpacity: 1,
-      keyboard: false,
-      renderer: canvasRenderer,
-    };
+    if (lastCoord) {
+      this.marker.setLatLng([lastCoord.lat, lastCoord.lng]);
 
-    const binData = e.detail.current_data;
-    const deserialized = GeoData.deserializeBinary(binData);
-    const data = deserialized.array[0];
+      // TODO: Rotate marker based on lastCoord.heading_rad (CustomIconMarker)
+    }
+  }
 
-    const geojsonData = data.map(([lat, lon, speed, direction]) => {
-      return {
-        type: "Feature",
-        geometry: {
-          type: "Point",
-          coordinates: [lon, lat],
-        },
-        properties: { speed, direction },
-      };
-    });
-
-    const layer = L.geoJSON(geojsonData, {
-      pointToLayer: function (feature, latlng) {
-        const { direction, speed } = feature.properties;
-
-        if (speed == 0) {
-          return undefined;
-        }
-
-        const farZoom = map.getZoom() < 12;
-        // Remove "zero" currents for farther zoom levels
-        if (!farZoom && speed > 0 && speed < 0.05) {
-          return L.circleMarker(latlng, geojsonMarkerOptions);
-        }
-
-        // Remove "slow" currents for farther zooms
-        if (farZoom && speed < 0.2) {
-          return undefined;
-        }
-
-        const color = interpolateColors(speed);
-
-        let scale = 1;
-        if (speed > 0 && speed <= 0.56) {
-          const minSize = 0.4;
-          scale = minSize + (speed / 0.56) * (1 - minSize);
-        }
-
-        return new CustomIconMarker(latlng, {
-          ...geojsonMarkerOptions,
-          rotationAngle: direction,
-          speed,
-          width: 12 * scale,
-          height: 6 * scale,
-          fillColor: color,
-          color: color,
-        });
-      },
-    });
-
-    map.addLayer(layer);
-    hook.previousLayer && map.removeLayer(hook.previousLayer);
-    hook.previousLayer = layer;
-  });
+  destroy() {
+    this.setVisible(false);
+  }
 }
+
+const LeafletHook = {
+  mounted() {
+    let divElement = this.el;
+    this.previousLayer = undefined;
+
+    var map = Leaflet.map(divElement, { preferCanvas: true }).setView(
+      [42.27, -70.997],
+      14
+    );
+
+    // var polyline = Leaflet.polyline([], { color: "red" }).addTo(map);
+    // let trackCoordinates = [];
+
+    Leaflet.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "© OpenStreetMap",
+    }).addTo(map);
+
+    // var marker = L.marker([42.27, -70.997]).addTo(map);
+    // marker.bindPopup("Boat Node");
+
+    map.on("zoomlevelschange resize load moveend viewreset", (e) => {
+      const {
+        _southWest: { lat: min_lat, lng: min_lon },
+        _northEast: { lat: max_lat, lng: max_lon },
+      } = map.getBounds();
+
+      const bounds = { min_lat, max_lat, min_lon, max_lon };
+
+      const position = document.getElementById("position").value;
+      const zoom_level = map.getZoom();
+      this.pushEvent("change_bounds", {
+        bounds,
+        position,
+        zoom_level,
+      });
+    });
+
+    this.boatViews = [];
+
+    window.addEventListener("phx:boat_views", (e) => {
+      const params = e.detail;
+
+      this.boatViews.forEach((bv) => bv.destroy());
+
+      this.boatViews = params.boat_views.map((newBv) => {
+        return new BoatView(
+          map,
+          newBv.boat_id,
+          newBv.coordinates,
+          newBv.track_color
+        );
+      });
+    });
+
+    window.addEventListener(
+      "phx:set_boat_visible",
+      ({ detail: { boat_id, visible } }) => {
+        const boatView = this.boatViews.find((bv) => bv.boatId == boat_id);
+
+        if (boatView) {
+          boatView.setVisible(visible);
+        }
+      }
+    );
+
+    window.addEventListener("phx:map_state", (e) => {
+      const params = e.detail;
+
+      // Update BoatView markers and tracks
+      if (params.range_start_at && params.range_end_at && params.inspect_at) {
+        this.boatViews.forEach((bv) => {
+          bv.setTime(
+            params.range_start_at,
+            params.range_end_at,
+            params.inspect_at
+          );
+        });
+      }
+    });
+
+    window.addEventListener("handleSetPosition", (e) => {
+      // "set_position";
+      const position = document.getElementById("position").value;
+      this.pushEvent("set_position", { position, zoom_level: map.getZoom() });
+    });
+
+    window.addEventListener(`phx:track_coordinates`, (e) => {
+      const {
+        detail: { coordinates },
+      } = e;
+
+      trackCoordinates = coordinates;
+    });
+
+    window.addEventListener(`phx:marker_coordinate`, (e) => {
+      const {
+        detail: { latitude, longitude },
+      } = e;
+
+      marker.setLatLng({ lat: latitude, lng: longitude });
+    });
+
+    window.addEventListener(`phx:marker_position`, (e) => {
+      const {
+        detail: { position },
+      } = e;
+
+      const [latitude, longitude] = trackCoordinates[position];
+      marker.setLatLng({ lat: latitude, lng: longitude });
+      polyline.setLatLngs(trackCoordinates.slice(0, position));
+    });
+
+    window.addEventListener("animateTime", ({ detail: { play } }) => {
+      this.timeoutHandler && clearInterval(this.timeoutHandler);
+
+      if (play) {
+        const fps = 30;
+
+        const timeoutHandler = setInterval(() => {
+          const posElement = window.document.getElementById("position");
+          const inc = 30;
+
+          if (!posElement) {
+            clearInterval(timeoutHandler);
+            return;
+          }
+
+          if (
+            parseInt(posElement.value) >=
+            parseInt(posElement.max) - (inc + 1)
+          ) {
+            clearInterval(timeoutHandler);
+          } else {
+            posElement.stepUp(inc);
+            const position = posElement.value;
+            this.pushEvent("set_position", {
+              position,
+              zoom_level: map.getZoom(),
+            });
+          }
+        }, 1000 / fps);
+
+        this.timeoutHandler = timeoutHandler;
+      }
+    });
+
+    window.addEventListener(`phx:map_view`, (e) => {
+      map.setView([e.detail.latitude, e.detail.longitude], 14);
+    });
+
+    window.addEventListener(`phx:clear_polyline`, (_e) => {
+      polyline.setLatLngs([]);
+    });
+
+    window.addEventListener(`phx:toggle_track`, (e) => {
+      if (e.detail.value) {
+        polyline.addTo(map);
+      } else {
+        polyline.remove();
+      }
+    });
+
+    window.addEventListener(`phx:add_water_markers`, (e) => {
+      const markerBaseColor = interpolateColors(0);
+
+      const canvasRenderer = L.canvas({ padding: 0 });
+
+      const geojsonMarkerOptions = {
+        radius: 0.5,
+        fillColor: markerBaseColor,
+        color: markerBaseColor,
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 1,
+        keyboard: false,
+        renderer: canvasRenderer,
+      };
+
+      const binData = e.detail.water_data;
+      const deserialized = GeoData.deserializeBinary(binData);
+      const data = deserialized.array[0];
+
+      const geojsonData = data.map(([lat, lon, speed, direction]) => {
+        return {
+          type: "Feature",
+          geometry: {
+            type: "Point",
+            coordinates: [lon, lat],
+          },
+          properties: { speed, direction },
+        };
+      });
+
+      const layer = L.geoJSON(geojsonData, {
+        pointToLayer: function (feature, latlng) {
+          const { direction, speed } = feature.properties;
+
+          if (speed == 0) {
+            return undefined;
+          }
+
+          const farZoom = map.getZoom() < 12;
+          // Remove "zero" currents for farther zoom levels
+          if (!farZoom && speed > 0 && speed < 0.05) {
+            return L.circleMarker(latlng, geojsonMarkerOptions);
+          }
+
+          // Remove "slow" currents for farther zooms
+          if (farZoom && speed < 0.2) {
+            return undefined;
+          }
+
+          const color = interpolateColors(speed);
+
+          let scale = 1;
+          if (speed > 0 && speed <= 0.56) {
+            const minSize = 0.4;
+            scale = minSize + (speed / 0.56) * (1 - minSize);
+          }
+
+          return new CustomIconMarker(latlng, {
+            ...geojsonMarkerOptions,
+            rotationAngle: direction,
+            speed,
+            width: 12 * scale,
+            height: 6 * scale,
+            fillColor: color,
+            color: color,
+          });
+        },
+      });
+
+      map.addLayer(layer);
+      this.previousLayer && map.removeLayer(this.previousLayer);
+      this.previousLayer = layer;
+    });
+
+    window.addEventListener(`phx:clear_water_markers`, (e) => {
+      this.previousLayer && map.removeLayer(this.previousLayer);
+      this.previousLayer = undefined;
+    });
+  },
+};
+
+export default LeafletHook;
