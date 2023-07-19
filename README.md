@@ -5,8 +5,6 @@
 ```sh
 asdf install
 
-brew install netcdf-cxx
-
 npm install --prefix assets
 
 mix deps.get
