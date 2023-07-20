@@ -56,7 +56,7 @@ defmodule NauticNetWeb.MapLive do
       # Timeline
       |> assign(:inspect_at, DateTime.utc_now())
       |> assign(:timezone, "America/New_York")
-      |> assign_dates_and_boats()
+      |> select_date(Timex.today("America/New_York"))
 
     {:ok, socket}
   end
@@ -364,14 +364,6 @@ defmodule NauticNetWeb.MapLive do
   #   end)
   # end
 
-  defp assign_dates_and_boats(socket) do
-    dates = Playback.list_all_dates(socket.assigns.timezone)
-
-    socket
-    |> assign(:dates, dates)
-    |> select_date(List.last(dates))
-  end
-
   # Set the date, boats, and data sources
   defp select_date(socket, nil) do
     now = DateTime.utc_now()
@@ -469,10 +461,6 @@ defmodule NauticNetWeb.MapLive do
     |> Enum.map(&{&1.channel.boat.name, &1.channel.boat.id})
     |> Enum.uniq()
     |> Enum.sort()
-  end
-
-  defp date_options(dates) do
-    Enum.map(dates, &Date.to_iso8601/1)
   end
 
   attr(:label, :string, required: true)

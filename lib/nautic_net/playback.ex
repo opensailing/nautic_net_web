@@ -10,24 +10,6 @@ defmodule NauticNet.Playback do
   alias NauticNet.Racing.Boat
   alias NauticNet.Repo
 
-  @doc """
-  Returns an ordered list of all dates with any data samples.
-
-  TODO: This query is slow; let's improve the performance somehow.
-  """
-  def list_all_dates(timezone) do
-    Sample
-    |> select([s], fragment("(? at time zone ?)::date", s.time, ^timezone))
-    |> distinct(true)
-    |> Repo.all()
-    |> Enum.sort(Date)
-    |> case do
-      # Always return a nonempty list
-      [] -> [Date.utc_today()]
-      dates -> dates
-    end
-  end
-
   def list_channels_on(%Date{} = date, timezone) do
     Sample
     |> where_date(date, timezone)
