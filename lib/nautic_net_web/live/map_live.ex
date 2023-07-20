@@ -596,7 +596,7 @@ defmodule NauticNetWeb.MapLive do
   end
 
   defp boats(signals) do
-    signals |> Enum.map(& &1.channel.boat) |> Enum.uniq()
+    signals |> Enum.map(& &1.channel.boat) |> Enum.uniq_by(& &1.id) |> Enum.sort_by(& &1.name)
   end
 
   defp position_signals(signals) do
