@@ -626,4 +626,8 @@ defmodule NauticNetWeb.MapLive do
     |> Enum.uniq()
     |> length()
   end
+
+  defp format_time(datetime) do
+    Timex.format!(datetime, "{h12}:{m}:{s}{am} {Zabbr}")
+  end
 end
