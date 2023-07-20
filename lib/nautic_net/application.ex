@@ -14,12 +14,12 @@ defmodule NauticNet.Application do
       NauticNet.Repo,
       # Start the PubSub system
       {Phoenix.PubSub, name: NauticNet.PubSub},
-      {NauticNet.NetCDF,
-       %{
-         dataset_filename: Path.join(:code.priv_dir(:nautic_net), "dataset_20221221.nc"),
-         start_date: ~D[2022-12-21],
-         end_date: ~D[2022-12-22]
-       }},
+      # {NauticNet.NetCDF,
+      #  %{
+      #    dataset_filename: Path.join(:code.priv_dir(:nautic_net), "dataset_20221221.nc"),
+      #    start_date: ~D[2022-12-21],
+      #    end_date: ~D[2022-12-22]
+      #  }},
       # Start Finch
       {Finch, name: NauticNet.Finch},
       # Start the Endpoint (http/https)
