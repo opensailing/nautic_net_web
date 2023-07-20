@@ -58,6 +58,14 @@ defmodule NauticNet.Data.Sample do
      ]}
   end
 
+  # Throw out obviously-invalid position samples
+  def attrs_from_protobuf_sample(
+        {_field, %Protobuf.PositionSample{latitude: latitude, longitude: longitude}}
+      )
+      when latitude < -90 or latitude > 90 or longitude < -180 or longitude > 180 do
+    :error
+  end
+
   def attrs_from_protobuf_sample({_field, %Protobuf.PositionSample{} = sample}) do
     {:ok,
      [
