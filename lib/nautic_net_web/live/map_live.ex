@@ -49,6 +49,7 @@ defmodule NauticNetWeb.MapLive do
       |> assign(:signal_views, @signal_views)
 
       # Map
+      |> assign(:needs_centering?, true)
       |> assign(:bounding_box, @default_bounding_box)
       |> assign(:zoom_level, 15)
 
@@ -234,55 +235,78 @@ defmodule NauticNetWeb.MapLive do
     {:noreply, socket}
   end
 
-  defp push_boat_coordinates(socket) do
-    {boat_views, min_lat, max_lat, min_lon, max_lon} =
-      for %Signal{channel: %Channel{type: :position}} = signal <- socket.assigns.signals,
-          reduce: {[], 90, -90, 180, -180} do
-        {boat_views, acc_min_lat, acc_max_lat, acc_min_lon, acc_max_lon} ->
-          # Don't pe rsist these coordinates in memory, they are too big, just push them to the client
-          coordinates =
-            Playback.list_coordinates(
-              signal.channel,
-              socket.assigns.selected_date,
-              socket.assigns.timezone
-            )
+  def handle_info(:start_coordinate_tasks, socket) do
+    live_view_pid = self()
 
-          boat_view = %{
-            "boat_id" => signal.channel.boat.id,
-            "track_color" => signal.color,
-            "coordinates" =>
-              Enum.map(coordinates, fn coord ->
-                %{
-                  "time" => DateTime.to_unix(coord.time),
-                  "lat" => coord.latitude,
-                  "lng" => coord.longitude,
-                  "heading_rad" => coord.true_heading
-                }
-              end)
-          }
+    socket.assigns.signals
+    |> Enum.filter(&(&1.channel.type == :position))
+    |> Enum.each(fn signal ->
+      Task.start(fn ->
+        coordinates =
+          Playback.list_coordinates(
+            signal.channel,
+            socket.assigns.selected_date,
+            socket.assigns.timezone
+          )
 
-          # Aggregate coordinate bounds
-          {boat_min_lat, boat_max_lat} = coordinates |> Enum.map(& &1.latitude) |> Enum.min_max()
-          {boat_min_lon, boat_max_lon} = coordinates |> Enum.map(& &1.longitude) |> Enum.min_max()
+        boat_view = %{
+          "boat_id" => signal.channel.boat.id,
+          "track_color" => signal.color,
+          "coordinates" =>
+            Enum.map(coordinates, fn coord ->
+              %{
+                "time" => DateTime.to_unix(coord.time),
+                "lat" => coord.latitude,
+                "lng" => coord.longitude,
+                "heading_rad" => coord.true_heading
+              }
+            end)
+        }
 
-          min_lat = min(acc_min_lat, boat_min_lat)
-          max_lat = max(acc_max_lat, boat_max_lat)
-          min_lon = min(acc_min_lon, boat_min_lon)
-          max_lon = max(acc_max_lon, boat_max_lon)
+        {min_lat, max_lat} = coordinates |> Enum.map(& &1.latitude) |> Enum.min_max()
+        {min_lon, max_lon} = coordinates |> Enum.map(& &1.longitude) |> Enum.min_max()
+        center_coord = {(min_lat + max_lat) / 2, (min_lon + max_lon) / 2}
 
-          {[boat_view | boat_views], min_lat, max_lat, min_lon, max_lon}
-      end
+        send(live_view_pid, {:push_boat_view, boat_view, center_coord})
 
-    socket
-    |> push_event("boat_views", %{"boat_views" => boat_views})
-    |> then(fn socket ->
-      # Maybe recenter the map
-      if boat_views == [] do
-        socket
-      else
-        set_map_view(socket, {(min_lat + max_lat) / 2, (min_lon + max_lon) / 2})
-      end
+        :ok
+      end)
     end)
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:push_boat_view, boat_view, center_coord}, socket) do
+    socket =
+      socket
+      |> push_event("add_boat_view", %{"boat_view" => boat_view})
+      # Needed to set time bounds for polyline
+      |> push_map_state()
+      |> maybe_recenter_map(center_coord)
+
+    {:noreply, socket}
+  end
+
+  defp maybe_recenter_map(socket, center_coord) do
+    if socket.assigns.needs_centering? do
+      socket
+      |> set_map_view(center_coord)
+      |> assign(:needs_centering?, false)
+    else
+      socket
+    end
+  end
+
+  defp push_boat_coordinates(socket) do
+    if connected?(socket) do
+      send(self(), :start_coordinate_tasks)
+
+      socket
+      |> assign(:needs_centering?, true)
+      |> push_event("clear_boat_views", %{})
+    else
+      socket
+    end
   end
 
   defp push_map_state(%{assigns: assigns} = socket) do
@@ -569,16 +593,20 @@ defmodule NauticNetWeb.MapLive do
   end
 
   defp subscribe_to_boats(socket) do
-    for boat <- boats(socket.assigns.signals) do
-      NauticNet.PubSub.subscribe_to_boat(boat)
+    if connected?(socket) do
+      for boat <- boats(socket.assigns.signals) do
+        NauticNet.PubSub.subscribe_to_boat(boat)
+      end
     end
 
     socket
   end
 
   defp unsubscribe_from_boats(socket) do
-    for boat <- boats(socket.assigns.signals) do
-      NauticNet.PubSub.unsubscribe_from_boat(boat)
+    if connected?(socket) do
+      for boat <- boats(socket.assigns.signals) do
+        NauticNet.PubSub.unsubscribe_from_boat(boat)
+      end
     end
 
     socket

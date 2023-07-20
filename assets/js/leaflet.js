@@ -179,6 +179,23 @@ const LeafletHook = {
       });
     });
 
+    window.addEventListener("phx:clear_boat_views", () => {
+      this.boatViews.forEach((bv) => bv.destroy());
+    });
+
+    window.addEventListener("phx:add_boat_view", (e) => {
+      const params = e.detail;
+
+      this.boatViews.push(
+        new BoatView(
+          map,
+          params.boat_view.boat_id,
+          params.boat_view.coordinates,
+          params.boat_view.track_color
+        )
+      );
+    });
+
     window.addEventListener(
       "phx:set_boat_visible",
       ({ detail: { boat_id, visible } }) => {
