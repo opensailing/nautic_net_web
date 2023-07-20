@@ -6,12 +6,6 @@ defmodule NauticNet.Playback.Signal do
     # %Channel{}
     channel: nil,
 
-    # List of %Sample{} (only preload if necessary)
-    samples: [],
-
-    # List of coordinate maps (for :position channels only)
-    coordinates: [],
-
     # The current sample being inspected
     latest_sample: nil,
 

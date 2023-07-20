@@ -2,7 +2,6 @@ defmodule NauticNetWeb.MapLive do
   use NauticNetWeb, :live_view
 
   alias Phoenix.PubSub
-  alias NauticNet.Coordinates
   alias NauticNet.Playback
   alias NauticNet.Playback.Channel
   alias NauticNet.Playback.Signal
@@ -10,7 +9,7 @@ defmodule NauticNetWeb.MapLive do
 
   require Logger
 
-  @hingham_bounding_box %{
+  @default_bounding_box %{
     "min_lat" => 42.1666,
     "max_lat" => 42.4093,
     "min_lon" => -71.0473,
@@ -50,7 +49,7 @@ defmodule NauticNetWeb.MapLive do
       |> assign(:signal_views, @signal_views)
 
       # Map
-      |> assign(:bounding_box, @hingham_bounding_box)
+      |> assign(:bounding_box, @default_bounding_box)
       |> assign(:zoom_level, 15)
 
       # Timeline
@@ -236,24 +235,54 @@ defmodule NauticNetWeb.MapLive do
   end
 
   defp push_boat_coordinates(socket) do
-    boat_views =
-      for %Signal{channel: %Channel{type: :position}} = signal <- socket.assigns.signals do
-        %{
-          "boat_id" => signal.channel.boat.id,
-          "track_color" => signal.color,
-          "coordinates" =>
-            Enum.map(signal.coordinates, fn coord ->
-              %{
-                "time" => DateTime.to_unix(coord.time),
-                "lat" => coord.latitude,
-                "lng" => coord.longitude,
-                "heading_rad" => coord.true_heading
-              }
-            end)
-        }
+    {boat_views, min_lat, max_lat, min_lon, max_lon} =
+      for %Signal{channel: %Channel{type: :position}} = signal <- socket.assigns.signals,
+          reduce: {[], 90, -90, 180, -180} do
+        {boat_views, acc_min_lat, acc_max_lat, acc_min_lon, acc_max_lon} ->
+          # Don't pe rsist these coordinates in memory, they are too big, just push them to the client
+          coordinates =
+            Playback.list_coordinates(
+              signal.channel,
+              socket.assigns.selected_date,
+              socket.assigns.timezone
+            )
+
+          boat_view = %{
+            "boat_id" => signal.channel.boat.id,
+            "track_color" => signal.color,
+            "coordinates" =>
+              Enum.map(coordinates, fn coord ->
+                %{
+                  "time" => DateTime.to_unix(coord.time),
+                  "lat" => coord.latitude,
+                  "lng" => coord.longitude,
+                  "heading_rad" => coord.true_heading
+                }
+              end)
+          }
+
+          # Aggregate coordinate bounds
+          {boat_min_lat, boat_max_lat} = coordinates |> Enum.map(& &1.latitude) |> Enum.min_max()
+          {boat_min_lon, boat_max_lon} = coordinates |> Enum.map(& &1.longitude) |> Enum.min_max()
+
+          min_lat = min(acc_min_lat, boat_min_lat)
+          max_lat = max(acc_max_lat, boat_max_lat)
+          min_lon = min(acc_min_lon, boat_min_lon)
+          max_lon = max(acc_max_lon, boat_max_lon)
+
+          {[boat_view | boat_views], min_lat, max_lat, min_lon, max_lon}
       end
 
-    push_event(socket, "boat_views", %{"boat_views" => boat_views})
+    socket
+    |> push_event("boat_views", %{"boat_views" => boat_views})
+    |> then(fn socket ->
+      # Maybe recenter the map
+      if boat_views == [] do
+        socket
+      else
+        set_map_view(socket, {(min_lat + max_lat) / 2, (min_lon + max_lon) / 2})
+      end
+    end)
   end
 
   defp push_map_state(%{assigns: assigns} = socket) do
@@ -310,7 +339,6 @@ defmodule NauticNetWeb.MapLive do
 
   defp push_live_coordinates(socket) do
     # TODO: Push new coordinates
-    # coordinates = Playback.list_coordinates(channel, date, assigns.timezone)
     socket
   end
 
@@ -365,40 +393,18 @@ defmodule NauticNetWeb.MapLive do
   # end
 
   # Set the date, boats, and data sources
-  defp select_date(socket, nil) do
-    now = DateTime.utc_now()
-
-    socket
-    |> assign(:selected_date, nil)
-    |> unsubscribe_from_boats()
-    |> assign(:signals, [])
-    |> select_boat(nil)
-    |> assign(:first_sample_at, now)
-    |> assign(:last_sample_at, now)
-    |> assign(:range_start_at, now)
-    |> assign(:range_end_at, now)
-  end
-
   defp select_date(%{assigns: assigns} = socket, date) do
     signals =
       date
       |> Playback.list_channels_on(assigns.timezone)
-      |> Enum.map(fn
-        %Channel{type: :position, boat: boat} = channel ->
-          coordinates = Playback.list_coordinates(channel, date, assigns.timezone)
-          %Signal{channel: channel, coordinates: coordinates, color: boat_color(boat.id)}
-
-        %Channel{boat: boat} = channel ->
-          %Signal{channel: channel, color: boat_color(boat.id)}
+      |> Enum.map(fn %Channel{boat: boat} = channel ->
+        %Signal{channel: channel, color: boat_color(boat.id)}
       end)
 
     # Set up the range for the main slider
     {first_sample_at, last_sample_at} = Playback.get_sample_range_on(date, assigns.timezone)
 
     first_position_signal = Enum.find(signals, &(&1.channel.type == :position))
-
-    map_center =
-      first_position_signal && Coordinates.get_center(first_position_signal.coordinates)
 
     socket
     |> assign(:selected_date, date)
@@ -418,7 +424,6 @@ defmodule NauticNetWeb.MapLive do
     |> push_boat_coordinates()
     |> push_map_state()
     |> select_boat(first_position_signal)
-    |> set_map_view(map_center)
   end
 
   # Ensure inspect_at lies within the range
@@ -520,10 +525,6 @@ defmodule NauticNetWeb.MapLive do
   defp convert(value, :m, :ft), do: value * 3.28084
 
   defp now_ms, do: System.monotonic_time(:millisecond)
-
-  defp set_map_view(socket, nil) do
-    socket
-  end
 
   defp set_map_view(socket, {latitude, longitude}) do
     push_event(socket, "map_view", %{latitude: latitude, longitude: longitude})
