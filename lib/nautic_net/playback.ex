@@ -6,20 +6,25 @@ defmodule NauticNet.Playback do
   import Ecto.Query
 
   alias NauticNet.Data.Sample
+  alias NauticNet.Data.Sensor
   alias NauticNet.Playback.Channel
   alias NauticNet.Racing.Boat
   alias NauticNet.Repo
 
   def list_channels_on(%Date{} = date, timezone) do
+    boats_by_id = Boat |> Repo.all() |> Map.new(&{&1.id, &1})
+    sensors_by_id = Sensor |> Repo.all() |> Map.new(&{&1.id, &1})
+
     Sample
     |> where_date(date, timezone)
-    |> join(:left, [sa], b in assoc(sa, :boat))
-    |> join(:left, [sa, b], sn in assoc(sa, :sensor))
-    |> select([sa, b, sn], %{boat: b, sensor: sn, type: sa.type})
+    |> select([s], [:boat_id, :sensor_id, :type])
     |> distinct(true)
     |> Repo.all()
-    |> Enum.map(fn %{boat: boat, sensor: sensor, type: type} ->
-      Channel.new(boat, sensor, type)
+    |> Enum.map(fn s ->
+      boat = boats_by_id[s.boat_id]
+      sensor = sensors_by_id[s.sensor_id]
+
+      Channel.new(boat, sensor, s.type)
     end)
   end
 
