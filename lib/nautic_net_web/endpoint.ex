@@ -11,7 +11,8 @@ defmodule NauticNetWeb.Endpoint do
     same_site: "Lax"
   ]
 
-  socket "/live", Phoenix.LiveView.Socket, websocket: [connect_info: [session: @session_options]]
+  socket "/live", Phoenix.LiveView.Socket,
+    websocket: [connect_info: [session: @session_options, fullsweep_after: 0]]
 
   # Serve at "/" the static files from "priv/static" directory.
   #
