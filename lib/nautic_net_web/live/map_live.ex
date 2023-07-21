@@ -20,15 +20,21 @@ defmodule NauticNetWeb.MapLive do
   @timezone "America/New_York"
 
   @signal_views [
-    %{type: :true_heading, label: "True Heading", field: :angle, unit: :deg},
+    %{type: :true_heading, label: "Compass Heading (True)", field: :angle, unit: :deg_true},
+    %{
+      type: :magnetic_heading,
+      label: "Compass Heading (Magnetic)",
+      field: :angle,
+      unit: :deg_magnetic
+    },
     %{type: :velocity_over_ground, label: "COG", field: :angle, unit: :deg},
     %{type: :speed_through_water, label: "Speed Thru Water", field: :magnitude, unit: :kn},
     %{type: :velocity_over_ground, label: "SOG", field: :magnitude, unit: :kn},
     %{type: :apparent_wind, label: "Apparent Wind", field: :angle, unit: :deg},
+    %{type: :apparent_wind, label: "Apparent Wind", field: :magnitude, unit: :kn},
     %{type: :water_depth, label: "Depth", field: :magnitude, unit: :ft},
     %{type: :battery, label: "Battery", field: :magnitude, unit: :percent, precision: 0},
     %{type: :heel, label: "Heel", field: :angle, unit: :deg},
-    %{type: :magnetic_heading, label: "Magnetic Heading", field: :angle, unit: :deg},
     %{type: :rssi, label: "RSSI", field: :magnitude, unit: :dbm, precision: 0}
   ]
 
@@ -507,17 +513,20 @@ defmodule NauticNetWeb.MapLive do
   attr(:label, :string, required: true)
   attr(:signal, Signal, required: true)
   attr(:field, :atom, required: true, values: [:angle, :magnitude])
-  attr(:unit, :atom, required: true, values: [:deg, :kn, :ft])
+  attr(:unit, :atom, required: true, values: [:deg, :deg_magnetic, :deg_true, :kn, :ft])
   attr(:precision, :integer, required: false)
   attr(:show_sensor, :boolean, required: false, default: true)
 
   defp signal_view(assigns) do
     assigns =
       assign_new(assigns, :precision, fn ->
-        if assigns.unit == :deg, do: 0, else: 1
+        if assigns.unit in [:deg, :deg_magnetic, :deg_true], do: 0, else: 1
       end)
 
-    channel_unit = if assigns.unit == :deg, do: :rad, else: assigns.signal.channel.unit
+    channel_unit =
+      if assigns.unit in [:deg, :deg_magnetic, :deg_true],
+        do: :rad,
+        else: assigns.signal.channel.unit
 
     display_value =
       if assigns.signal.latest_sample do
@@ -552,12 +561,17 @@ defmodule NauticNetWeb.MapLive do
   defp unit(:percent), do: "%"
   defp unit(:dbm), do: "dBm"
   defp unit(:deg), do: "°"
+  defp unit(:deg_magnetic), do: "°M"
+  defp unit(:deg_true), do: "°T"
   defp unit(:kn), do: "kn"
   defp unit(:ft), do: "ft"
 
   defp convert(value, same, same), do: value * 1.0
   defp convert(value, :m_s, :kn), do: value * 1.94384
-  defp convert(value, :rad, :deg), do: value * 180 / :math.pi()
+
+  defp convert(value, :rad, deg) when deg in [:deg, :deg_magnetic, :deg_true],
+    do: value * 180 / :math.pi()
+
   defp convert(value, :m, :ft), do: value * 3.28084
 
   defp now_ms, do: System.monotonic_time(:millisecond)
