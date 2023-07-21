@@ -31,6 +31,7 @@ defmodule NauticNetWeb.MapLive do
     %{type: :speed_through_water, label: "Speed Thru Water", field: :magnitude, unit: :kn},
     %{type: :velocity_over_ground, label: "SOG", field: :magnitude, unit: :kn},
     %{type: :apparent_wind, label: "Apparent Wind", field: :angle, unit: :deg},
+    %{type: :apparent_wind, label: "Apparent Wind", field: :magnitude, unit: :kn},
     %{type: :water_depth, label: "Depth", field: :magnitude, unit: :ft},
     %{type: :battery, label: "Battery", field: :magnitude, unit: :percent, precision: 0},
     %{type: :heel, label: "Heel", field: :angle, unit: :deg},
