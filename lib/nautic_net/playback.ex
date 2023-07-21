@@ -5,6 +5,7 @@ defmodule NauticNet.Playback do
 
   import Ecto.Query
 
+  alias NauticNet.Data.ActiveChannel
   alias NauticNet.Data.Sample
   alias NauticNet.Data.Sensor
   alias NauticNet.Playback.Channel
@@ -15,8 +16,24 @@ defmodule NauticNet.Playback do
     boats_by_id = Boat |> Repo.all() |> Map.new(&{&1.id, &1})
     sensors_by_id = Sensor |> Repo.all() |> Map.new(&{&1.id, &1})
 
-    Sample
-    |> where_date(date, timezone)
+    # The active_signals view contains UTC dates, so we need to determine which UTC dates
+    # overlap with the specified Date in its desired timezone
+    start_utc_date =
+      date
+      |> Timex.to_datetime(timezone)
+      |> Timex.beginning_of_day()
+      |> Timex.to_datetime("Etc/UTC")
+      |> Timex.to_date()
+
+    end_utc_date =
+      date
+      |> Timex.to_datetime(timezone)
+      |> Timex.end_of_day()
+      |> Timex.to_datetime("Etc/UTC")
+      |> Timex.to_date()
+
+    ActiveChannel
+    |> where([as], as.utc_date in ^[start_utc_date, end_utc_date])
     |> select([s], [:boat_id, :sensor_id, :type])
     |> distinct(true)
     |> Repo.all()
