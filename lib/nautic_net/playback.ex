@@ -18,7 +18,7 @@ defmodule NauticNet.Playback do
     sensors_by_id = Sensor |> Repo.all() |> Map.new(&{&1.id, &1})
 
     ActiveChannel
-    |> where([as], as.utc_date in ^utc_dates(local_date))
+    |> where([as], as.utc_date in ^LocalDate.utc_dates(local_date))
     |> select([s], [:boat_id, :sensor_id, :type])
     |> distinct(true)
     |> Repo.all()
@@ -30,33 +30,13 @@ defmodule NauticNet.Playback do
     end)
   end
 
-  # The active_signals view contains UTC dates, so we need to determine which UTC dates
-  # overlap with the specified Date in its desired timezone
-  defp utc_dates(%LocalDate{} = local_date) do
-    start_utc_date =
-      local_date.date
-      |> Timex.to_datetime(local_date.timezone)
-      |> Timex.beginning_of_day()
-      |> Timex.to_datetime("Etc/UTC")
-      |> Timex.to_date()
-
-    end_utc_date =
-      local_date.date
-      |> Timex.to_datetime(local_date.timezone)
-      |> Timex.end_of_day()
-      |> Timex.to_datetime("Etc/UTC")
-      |> Timex.to_date()
-
-    [start_utc_date, end_utc_date]
-  end
-
   @doc """
   Returns a list of Boat structs that were active on a given day.
   """
   def list_active_boats(%LocalDate{} = local_date) do
     boat_ids =
       Sample
-      |> where_date(local_date)
+      |> where_local_date(local_date)
       |> select([s], s.boat_id)
       |> distinct(true)
       |> Repo.all()
@@ -80,7 +60,7 @@ defmodule NauticNet.Playback do
     positions =
       Sample
       |> where_channel(channel)
-      |> where_date(local_date_or_interval, local_timezone)
+      |> where_local_date(local_date_or_interval, local_timezone)
       |> order_by([s], s.time)
       |> select([s], {s.time, s.position})
       |> Repo.all()
@@ -223,30 +203,17 @@ defmodule NauticNet.Playback do
   #   end)
   # end
 
-  defp where_date(query, %LocalDate{} = local_date) do
-    where_date(query, local_date.date, local_date.timezone)
+  defp where_local_date(query, %LocalDate{} = local_date) do
+    where_utc_date(query, local_date)
   end
 
-  # Convert the date to a pair of DateTimes that represent the start and end of the day in the desired
-  # timezone, but then convert to UTC for easy interpolation into the database
-  defp where_date(query, {start_utc, end_utc}, "Etc/UTC") do
+  defp where_local_date(query, %Date{} = date, timezone) do
+    where_utc_date(query, %LocalDate{date: date, timezone: timezone})
+  end
+
+  defp where_utc_date(query, %LocalDate{} = local_date) do
+    {start_utc, end_utc} = LocalDate.utc_interval(local_date)
     where(query, [s], s.time >= ^start_utc and s.time <= ^end_utc)
-  end
-
-  defp where_date(query, %Date{} = local_date, local_timezone) do
-    start_utc =
-      local_date
-      |> Timex.to_datetime(local_timezone)
-      |> Timex.beginning_of_day()
-      |> Timex.to_datetime("Etc/UTC")
-
-    end_utc =
-      local_date
-      |> Timex.to_datetime(local_timezone)
-      |> Timex.end_of_day()
-      |> Timex.to_datetime("Etc/UTC")
-
-    where_date(query, {start_utc, end_utc}, "Etc/UTC")
   end
 
   defp where_channel(sample_query, %Channel{} = channel) do
@@ -262,7 +229,7 @@ defmodule NauticNet.Playback do
   def get_sample_range_on(%LocalDate{} = local_date) do
     first_sample_at_utc =
       Sample
-      |> where_date(local_date)
+      |> where_local_date(local_date)
       |> order_by([s], asc: s.time)
       |> limit(1)
       |> select([s], s.time)
@@ -270,7 +237,7 @@ defmodule NauticNet.Playback do
 
     last_sample_at_utc =
       Sample
-      |> where_date(local_date)
+      |> where_local_date(local_date)
       |> order_by([s], desc: s.time)
       |> limit(1)
       |> select([s], s.time)
@@ -284,10 +251,7 @@ defmodule NauticNet.Playback do
       }
     else
       # Generate local start/end of day if there are no samples
-      {
-        local_date.date |> Timex.to_datetime(local_date.timezone) |> Timex.beginning_of_day(),
-        local_date.date |> Timex.to_datetime(local_date.timezone) |> Timex.end_of_day()
-      }
+      LocalDate.local_interval(local_date)
     end
   end
 end
