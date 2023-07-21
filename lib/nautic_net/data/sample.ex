@@ -3,7 +3,6 @@ defmodule NauticNet.Data.Sample do
   use NauticNet.Schema
 
   alias NauticNet.Data.Sensor
-  alias NauticNet.Math
   alias NauticNet.Playback.Channel
   alias NauticNet.Protobuf
   alias NauticNet.Racing.Boat

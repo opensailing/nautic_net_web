@@ -17,7 +17,7 @@ defmodule NauticNet.Math do
   Adds two headings together in degrees, wrapping around at 0°.
   """
   def add_degrees(deg1, deg2) do
-    rad2deg(add_radians(deg2rad(deg1), deg2rad(deg2)))
+    :math.fmod(deg1 + deg2 + 360, 360)
   end
 
   @doc """
