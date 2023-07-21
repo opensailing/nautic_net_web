@@ -6,28 +6,28 @@ on:
     branches: ["main"]
 env:
   MIX_ENV: test
-  ImageOS: ubuntu20
+  ImageOS: ubuntu22
   NETCDF_BUILD: true
 permissions:
   contents: read
 jobs:
   build:
     name: Build and test app on OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     services:
       postgres:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: nautic_net_web_test
-        image: timescale/timescaledb-ha:pg14-latest
-        ports: ['5432:5432']
+        image: timescale/timescaledb-ha:pg15-latest
+        ports: ["5432:5432"]
         options: >-
           --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     strategy:
       matrix:
-        otp: ['25.0.2']
-        elixir: ['1.14.2']
+        otp: ["25.0.2"]
+        elixir: ["1.14.2"]
     steps:
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
@@ -37,7 +37,7 @@ jobs:
       - name: Set up Rust
         uses: ATiltedTree/setup-rust@v1
         with:
-          rust-version: '1.66.1'
+          rust-version: "1.66.1"
       - name: Install NetCDF dependencies
         run: sudo apt install libhdf5-serial-dev libnetcdf-dev
       - name: Checkout code
