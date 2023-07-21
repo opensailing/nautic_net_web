@@ -3,6 +3,7 @@ defmodule NauticNet.Data.Sample do
   use NauticNet.Schema
 
   alias NauticNet.Data.Sensor
+  alias NauticNet.Math
   alias NauticNet.Playback.Channel
   alias NauticNet.Protobuf
   alias NauticNet.Racing.Boat
@@ -138,6 +139,9 @@ defmodule NauticNet.Data.Sample do
   def attrs_from_protobuf_sample(
         {_field, %Protobuf.TrackerSample{rover_data: %Protobuf.RoverData{} = rover_data} = sample}
       ) do
+    # TODO: Calculate magnetic declination based on lat/lon... currently hardcoded to Hingham, MA (14.21° W declination)
+    declination_deg = -14.21
+
     {:ok,
      [
        %{type: :rssi, magnitude: sample.rssi * 1.0},
@@ -155,7 +159,7 @@ defmodule NauticNet.Data.Sample do
          angle:
            rover_data.heading
            |> Protobuf.Convert.decode_unit(:ddeg, :rad)
-           |> magnetic_heading_to_true_heading()
+           |> Math.add_radians(Math.deg2rad(declination_deg))
        },
        %{
          type: :heel,
@@ -183,17 +187,6 @@ defmodule NauticNet.Data.Sample do
   def types, do: @types
 
   def get_type_info(type), do: Enum.find(@types, &(&1.type == type))
-
-  defp magnetic_heading_to_true_heading(mag_heading_rad) do
-    # TODO: Calculate magnetic declination based on lat/lon... currently hardcoded to Hingham, MA (14.21° W declination)
-    declination_deg = -14.21
-
-    # Apply correction, and wrap around
-    true_heading_rad = mag_heading_rad - deg2rad(declination_deg)
-    :math.fmod(true_heading_rad, :math.pi())
-  end
-
-  defp deg2rad(deg), do: deg * :math.pi() / 180
 
   @doc """
   Returns true if a Sample is aplicable to a Channel.
