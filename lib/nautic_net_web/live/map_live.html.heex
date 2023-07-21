@@ -2,13 +2,12 @@
 
 <div class="flex items-center justify-between my-4">
   <div class="flex items-center gap-4">
-    <form phx-change="select_date" class="w-32">
+    <form phx-change="select_date" class="w-36">
       <.input
-        type="select"
+        type="date"
         id="date"
         name="date"
         value={@selected_date}
-        options={date_options(@dates)}
         errors={[]}
         disabled={@live?}
       />
@@ -41,15 +40,17 @@
     data-min={DateTime.to_unix(@first_sample_at)}
     data-max={DateTime.to_unix(@last_sample_at)}
   />
-  <div><%= @range_start_at %></div>
-  <div><%= @range_end_at %></div>
+  <div class="flex justify-between mt-2">
+    <div>From <%= format_time(@range_start_at) %></div>
+    <div>To <%= format_time(@range_end_at) %></div>
+  </div>
 </div>
 
 <form
   phx-change={Phoenix.LiveView.JS.dispatch("handleSetPosition")}
   phx-click={Phoenix.LiveView.JS.dispatch("handleSetPosition")}
   phx-throttle="500"
-  class="my-4"
+  class="mt-4"
 >
   <input
     style="width:100%"
@@ -63,7 +64,7 @@
   />
 </form>
 
-<div><%= @inspect_at %></div>
+<div>Inspect <%= format_time(@inspect_at) %></div>
 
 <table>
   <%= for %{channel: %{boat: boat}} = signal <- position_signals(@signals) do %>

@@ -1,3 +1,20 @@
 #!/bin/sh
+
+#
+# Source: https://community.fly.io/t/fly-deploy-returns-error-for-new-app/14280/8
+#
+
+if [ "$(id -u)" -eq 0 ] && [ ! -f /swapfile ]; then
+  # allocate swap space
+  fallocate -l 512M /swapfile
+  chmod 0600 /swapfile
+  mkswap /swapfile
+  echo 10 > /proc/sys/vm/swappiness
+  swapon /swapfile
+  echo 1 > /proc/sys/vm/overcommit_memory
+  # rerun this script as nobody
+  exec su nobody -s $SHELL -c "$0 $@"
+fi
+
 cd -P -- "$(dirname -- "$0")"
 PHX_SERVER=true exec ./nautic_net start
