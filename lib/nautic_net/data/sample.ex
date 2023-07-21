@@ -139,9 +139,6 @@ defmodule NauticNet.Data.Sample do
   def attrs_from_protobuf_sample(
         {_field, %Protobuf.TrackerSample{rover_data: %Protobuf.RoverData{} = rover_data} = sample}
       ) do
-    # TODO: Calculate magnetic declination based on lat/lon... currently hardcoded to Hingham, MA (14.21° W declination)
-    declination_deg = -14.21
-
     {:ok,
      [
        %{type: :rssi, magnitude: sample.rssi * 1.0},
@@ -153,13 +150,6 @@ defmodule NauticNet.Data.Sample do
        %{
          type: :magnetic_heading,
          angle: Protobuf.Convert.decode_unit(rover_data.heading, :ddeg, :rad)
-       },
-       %{
-         type: :true_heading,
-         angle:
-           rover_data.heading
-           |> Protobuf.Convert.decode_unit(:ddeg, :rad)
-           |> Math.add_radians(Math.deg2rad(declination_deg))
        },
        %{
          type: :heel,
