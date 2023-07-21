@@ -5,18 +5,20 @@ defmodule NauticNet.Playback do
 
   import Ecto.Query
 
+  alias NauticNet.Data.ActiveChannel
   alias NauticNet.Data.Sample
   alias NauticNet.Data.Sensor
+  alias NauticNet.LocalDate
   alias NauticNet.Playback.Channel
   alias NauticNet.Racing.Boat
   alias NauticNet.Repo
 
-  def list_channels_on(%Date{} = date, timezone) do
+  def list_channels_on(%LocalDate{} = local_date) do
     boats_by_id = Boat |> Repo.all() |> Map.new(&{&1.id, &1})
     sensors_by_id = Sensor |> Repo.all() |> Map.new(&{&1.id, &1})
 
-    Sample
-    |> where_date(date, timezone)
+    ActiveChannel
+    |> where([as], as.utc_date in ^LocalDate.utc_dates(local_date))
     |> select([s], [:boat_id, :sensor_id, :type])
     |> distinct(true)
     |> Repo.all()
@@ -31,10 +33,10 @@ defmodule NauticNet.Playback do
   @doc """
   Returns a list of Boat structs that were active on a given day.
   """
-  def list_active_boats(%Date{} = date, timezone) do
+  def list_active_boats(%LocalDate{} = local_date) do
     boat_ids =
       Sample
-      |> where_date(date, timezone)
+      |> where_local_date(local_date)
       |> select([s], s.boat_id)
       |> distinct(true)
       |> Repo.all()
@@ -45,16 +47,20 @@ defmodule NauticNet.Playback do
     |> Repo.all()
   end
 
+  def list_coordinates(%Channel{} = channel, %LocalDate{} = local_date) do
+    list_coordinates(channel, local_date.date, local_date.timezone)
+  end
+
   @doc """
   Returns a list of coordinate maps for display in MapLive.
 
   Keys: :time, :latitude, :longitude, :true_heading
   """
-  def list_coordinates(%Channel{} = channel, date_or_interval, timezone) do
+  def list_coordinates(%Channel{} = channel, local_date_or_interval, local_timezone) do
     positions =
       Sample
       |> where_channel(channel)
-      |> where_date(date_or_interval, timezone)
+      |> where_local_date(local_date_or_interval, local_timezone)
       |> order_by([s], s.time)
       |> select([s], {s.time, s.position})
       |> Repo.all()
@@ -197,26 +203,17 @@ defmodule NauticNet.Playback do
   #   end)
   # end
 
-  # Convert the date to a pair of DateTimes that represent the start and end of the day in the desired
-  # timezone, but then convert to UTC for easy interpolation into the database
-  defp where_date(query, {start_utc, end_utc}, "Etc/UTC") do
-    where(query, [s], s.time >= ^start_utc and s.time <= ^end_utc)
+  defp where_local_date(query, %LocalDate{} = local_date) do
+    where_utc_date(query, local_date)
   end
 
-  defp where_date(query, %Date{} = date, timezone) do
-    start_utc =
-      date
-      |> Timex.to_datetime(timezone)
-      |> Timex.beginning_of_day()
-      |> Timex.to_datetime("Etc/UTC")
+  defp where_local_date(query, %Date{} = date, timezone) do
+    where_utc_date(query, %LocalDate{date: date, timezone: timezone})
+  end
 
-    end_utc =
-      date
-      |> Timex.to_datetime(timezone)
-      |> Timex.end_of_day()
-      |> Timex.to_datetime("Etc/UTC")
-
-    where_date(query, {start_utc, end_utc}, "Etc/UTC")
+  defp where_utc_date(query, %LocalDate{} = local_date) do
+    {start_utc, end_utc} = LocalDate.utc_interval(local_date)
+    where(query, [s], s.time >= ^start_utc and s.time <= ^end_utc)
   end
 
   defp where_channel(sample_query, %Channel{} = channel) do
@@ -229,10 +226,10 @@ defmodule NauticNet.Playback do
   @doc """
   Returns the range of DateTimes over which samples exist on a given date.
   """
-  def get_sample_range_on(%Date{} = date, timezone) do
+  def get_sample_range_on(%LocalDate{} = local_date) do
     first_sample_at_utc =
       Sample
-      |> where_date(date, timezone)
+      |> where_local_date(local_date)
       |> order_by([s], asc: s.time)
       |> limit(1)
       |> select([s], s.time)
@@ -240,7 +237,7 @@ defmodule NauticNet.Playback do
 
     last_sample_at_utc =
       Sample
-      |> where_date(date, timezone)
+      |> where_local_date(local_date)
       |> order_by([s], desc: s.time)
       |> limit(1)
       |> select([s], s.time)
@@ -249,15 +246,12 @@ defmodule NauticNet.Playback do
     if first_sample_at_utc && last_sample_at_utc do
       # Convert from UTC to local
       {
-        Timex.to_datetime(first_sample_at_utc, timezone),
-        Timex.to_datetime(last_sample_at_utc, timezone)
+        Timex.to_datetime(first_sample_at_utc, local_date.timezone),
+        Timex.to_datetime(last_sample_at_utc, local_date.timezone)
       }
     else
       # Generate local start/end of day if there are no samples
-      {
-        date |> Timex.to_datetime(timezone) |> Timex.beginning_of_day(),
-        date |> Timex.to_datetime(timezone) |> Timex.end_of_day()
-      }
+      LocalDate.local_interval(local_date)
     end
   end
 end

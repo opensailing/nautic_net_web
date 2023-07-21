@@ -25,7 +25,8 @@ defmodule NauticNet.Application do
       # Start the Endpoint (http/https)
       NauticNetWeb.Endpoint,
       # Start the protobuf UDP listener
-      {NauticNet.Ingest.UDPServer, port: Application.fetch_env!(:nautic_net, :udp_port)}
+      {NauticNet.Ingest.UDPServer, port: Application.fetch_env!(:nautic_net, :udp_port)},
+      {NauticNet.MaterializedViewRefresher, view: "active_channels", interval: :timer.seconds(60)}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

@@ -2,6 +2,7 @@ defmodule NauticNetWeb.MapLive do
   use NauticNetWeb, :live_view
 
   alias Phoenix.PubSub
+  alias NauticNet.LocalDate
   alias NauticNet.Playback
   alias NauticNet.Playback.Channel
   alias NauticNet.Playback.Signal
@@ -15,6 +16,8 @@ defmodule NauticNetWeb.MapLive do
     "min_lon" => -71.0473,
     "max_lon" => -70.8557
   }
+
+  @timezone "America/New_York"
 
   @signal_views [
     %{type: :true_heading, label: "True Heading", field: :angle, unit: :deg},
@@ -55,8 +58,7 @@ defmodule NauticNetWeb.MapLive do
 
       # Timeline
       |> assign(:inspect_at, DateTime.utc_now())
-      |> assign(:timezone, "America/New_York")
-      |> select_date(Timex.today("America/New_York"))
+      |> select_date(Timex.today(@timezone), @timezone)
 
     {:ok, socket}
   end
@@ -86,8 +88,8 @@ defmodule NauticNetWeb.MapLive do
   end
 
   def handle_event("update_range", %{"min" => min, "max" => max}, socket) do
-    range_start_at = parse_unix_datetime(min, socket.assigns.timezone)
-    range_end_at = parse_unix_datetime(max, socket.assigns.timezone)
+    range_start_at = parse_unix_datetime(min, socket.assigns.local_date.timezone)
+    range_end_at = parse_unix_datetime(max, socket.assigns.local_date.timezone)
 
     {:noreply,
      socket
@@ -120,7 +122,7 @@ defmodule NauticNetWeb.MapLive do
   def handle_event("select_date", %{"date" => date_param}, socket) do
     date = Date.from_iso8601!(date_param)
 
-    {:noreply, select_date(socket, date)}
+    {:noreply, select_date(socket, date, socket.assigns.local_date.timezone)}
   end
 
   def handle_event("select_boat", %{"boat_id" => boat_id}, socket) do
@@ -194,7 +196,7 @@ defmodule NauticNetWeb.MapLive do
   # PubSub message from NauticNet.Ingest
   # def handle_info({:new_samples, samples}, %{assigns: %{live?: true} = assigns} = socket) do
   #   # Only care about samples that are "today"
-  #   samples = Enum.filter(samples, fn s -> DateTime.to_date(s.time) == assigns.selected_date end)
+  #   samples = Enum.filter(samples, fn s -> DateTime.to_date(s.time) == assigns.local_date end)
 
   #   # Update the latest_sample for applicable signals
   #   signals =
@@ -242,34 +244,7 @@ defmodule NauticNetWeb.MapLive do
     |> Enum.filter(&(&1.channel.type == :position))
     |> Enum.each(fn signal ->
       Task.start(fn ->
-        coordinates =
-          Playback.list_coordinates(
-            signal.channel,
-            socket.assigns.selected_date,
-            socket.assigns.timezone
-          )
-
-        boat_view = %{
-          "boat_id" => signal.channel.boat.id,
-          "track_color" => signal.color,
-          "coordinates" =>
-            Enum.map(coordinates, fn coord ->
-              %{
-                "time" => DateTime.to_unix(coord.time),
-                "lat" => coord.latitude,
-                "lng" => coord.longitude,
-                "heading_rad" => coord.true_heading
-              }
-            end)
-        }
-
-        {min_lat, max_lat} = coordinates |> Enum.map(& &1.latitude) |> Enum.min_max()
-        {min_lon, max_lon} = coordinates |> Enum.map(& &1.longitude) |> Enum.min_max()
-        center_coord = {(min_lat + max_lat) / 2, (min_lon + max_lon) / 2}
-
-        send(live_view_pid, {:push_boat_view, boat_view, center_coord})
-
-        :ok
+        fetch_coordinates_task(signal, socket.assigns.local_date, live_view_pid)
       end)
     end)
 
@@ -287,8 +262,43 @@ defmodule NauticNetWeb.MapLive do
     {:noreply, socket}
   end
 
+  defp fetch_coordinates_task(signal, local_date, live_view_pid) do
+    coordinates =
+      Playback.list_coordinates(
+        signal.channel,
+        local_date
+      )
+
+    boat_view = %{
+      "boat_id" => signal.channel.boat.id,
+      "track_color" => signal.color,
+      "coordinates" =>
+        Enum.map(coordinates, fn coord ->
+          %{
+            "time" => DateTime.to_unix(coord.time),
+            "lat" => coord.latitude,
+            "lng" => coord.longitude,
+            "heading_rad" => coord.true_heading
+          }
+        end)
+    }
+
+    center_coord =
+      if coordinates == [] do
+        nil
+      else
+        {min_lat, max_lat} = coordinates |> Enum.map(& &1.latitude) |> Enum.min_max()
+        {min_lon, max_lon} = coordinates |> Enum.map(& &1.longitude) |> Enum.min_max()
+        {(min_lat + max_lat) / 2, (min_lon + max_lon) / 2}
+      end
+
+    send(live_view_pid, {:push_boat_view, boat_view, center_coord})
+
+    :ok
+  end
+
   defp maybe_recenter_map(socket, center_coord) do
-    if socket.assigns.needs_centering? do
+    if socket.assigns.needs_centering? and center_coord != nil do
       socket
       |> set_map_view(center_coord)
       |> assign(:needs_centering?, false)
@@ -325,7 +335,7 @@ defmodule NauticNetWeb.MapLive do
 
     new_inspect_at =
       if pos = params["position"] do
-        parse_unix_datetime(pos, assigns.timezone)
+        parse_unix_datetime(pos, assigns.local_date.timezone)
       else
         assigns.inspect_at
       end
@@ -417,21 +427,23 @@ defmodule NauticNetWeb.MapLive do
   # end
 
   # Set the date, boats, and data sources
-  defp select_date(%{assigns: assigns} = socket, date) do
+  defp select_date(socket, date, timezone) do
+    local_date = %LocalDate{date: date, timezone: timezone}
+
     signals =
-      date
-      |> Playback.list_channels_on(assigns.timezone)
+      local_date
+      |> Playback.list_channels_on()
       |> Enum.map(fn %Channel{boat: boat} = channel ->
         %Signal{channel: channel, color: boat_color(boat.id)}
       end)
 
     # Set up the range for the main slider
-    {first_sample_at, last_sample_at} = Playback.get_sample_range_on(date, assigns.timezone)
+    {first_sample_at, last_sample_at} = Playback.get_sample_range_on(local_date)
 
     first_position_signal = Enum.find(signals, &(&1.channel.type == :position))
 
     socket
-    |> assign(:selected_date, date)
+    |> assign(:local_date, local_date)
     |> unsubscribe_from_boats()
     |> assign(:signals, signals)
     |> subscribe_to_boats()
@@ -554,18 +566,18 @@ defmodule NauticNetWeb.MapLive do
     push_event(socket, "map_view", %{latitude: latitude, longitude: longitude})
   end
 
-  defp parse_unix_datetime(param, timezone) when is_binary(param) do
+  defp parse_unix_datetime(param, local_timezone) when is_binary(param) do
     param
     |> Float.parse()
     |> elem(0)
     |> trunc()
-    |> parse_unix_datetime(timezone)
+    |> parse_unix_datetime(local_timezone)
   end
 
-  defp parse_unix_datetime(param, timezone) when is_integer(param) do
+  defp parse_unix_datetime(param, local_timezone) when is_integer(param) do
     param
     |> DateTime.from_unix!()
-    |> Timex.to_datetime(timezone)
+    |> Timex.to_datetime(local_timezone)
   end
 
   defp boat_color(boat_id) do

@@ -72,7 +72,7 @@ jobs:
         run: mix deps.audit
       - name: Run security-focused static analysis (ignoring HTTPS until automatic deployment)
         run: mix sobelow -i Config.HTTPS
-      - name: Run dialyzer
-        run: mix dialyzer --format github
       - name: Run Credo
         run: mix credo -i todo
+      - name: Run dialyzer
+        run: mix dialyzer --format github
