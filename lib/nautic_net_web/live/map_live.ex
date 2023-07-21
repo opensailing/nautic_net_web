@@ -244,38 +244,7 @@ defmodule NauticNetWeb.MapLive do
     |> Enum.filter(&(&1.channel.type == :position))
     |> Enum.each(fn signal ->
       Task.start(fn ->
-        coordinates =
-          Playback.list_coordinates(
-            signal.channel,
-            socket.assigns.local_date
-          )
-
-        boat_view = %{
-          "boat_id" => signal.channel.boat.id,
-          "track_color" => signal.color,
-          "coordinates" =>
-            Enum.map(coordinates, fn coord ->
-              %{
-                "time" => DateTime.to_unix(coord.time),
-                "lat" => coord.latitude,
-                "lng" => coord.longitude,
-                "heading_rad" => coord.true_heading
-              }
-            end)
-        }
-
-        center_coord =
-          if coordinates == [] do
-            nil
-          else
-            {min_lat, max_lat} = coordinates |> Enum.map(& &1.latitude) |> Enum.min_max()
-            {min_lon, max_lon} = coordinates |> Enum.map(& &1.longitude) |> Enum.min_max()
-            {(min_lat + max_lat) / 2, (min_lon + max_lon) / 2}
-          end
-
-        send(live_view_pid, {:push_boat_view, boat_view, center_coord})
-
-        :ok
+        fetch_coordinates_task(signal, socket.assigns.local_date, live_view_pid)
       end)
     end)
 
@@ -291,6 +260,41 @@ defmodule NauticNetWeb.MapLive do
       |> maybe_recenter_map(center_coord)
 
     {:noreply, socket}
+  end
+
+  defp fetch_coordinates_task(signal, local_date, live_view_pid) do
+    coordinates =
+      Playback.list_coordinates(
+        signal.channel,
+        local_date
+      )
+
+    boat_view = %{
+      "boat_id" => signal.channel.boat.id,
+      "track_color" => signal.color,
+      "coordinates" =>
+        Enum.map(coordinates, fn coord ->
+          %{
+            "time" => DateTime.to_unix(coord.time),
+            "lat" => coord.latitude,
+            "lng" => coord.longitude,
+            "heading_rad" => coord.true_heading
+          }
+        end)
+    }
+
+    center_coord =
+      if coordinates == [] do
+        nil
+      else
+        {min_lat, max_lat} = coordinates |> Enum.map(& &1.latitude) |> Enum.min_max()
+        {min_lon, max_lon} = coordinates |> Enum.map(& &1.longitude) |> Enum.min_max()
+        {(min_lat + max_lat) / 2, (min_lon + max_lon) / 2}
+      end
+
+    send(live_view_pid, {:push_boat_view, boat_view, center_coord})
+
+    :ok
   end
 
   defp maybe_recenter_map(socket, center_coord) do
