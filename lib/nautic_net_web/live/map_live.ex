@@ -264,9 +264,14 @@ defmodule NauticNetWeb.MapLive do
             end)
         }
 
-        {min_lat, max_lat} = coordinates |> Enum.map(& &1.latitude) |> Enum.min_max()
-        {min_lon, max_lon} = coordinates |> Enum.map(& &1.longitude) |> Enum.min_max()
-        center_coord = {(min_lat + max_lat) / 2, (min_lon + max_lon) / 2}
+        center_coord =
+          if coordinates == [] do
+            nil
+          else
+            {min_lat, max_lat} = coordinates |> Enum.map(& &1.latitude) |> Enum.min_max()
+            {min_lon, max_lon} = coordinates |> Enum.map(& &1.longitude) |> Enum.min_max()
+            {(min_lat + max_lat) / 2, (min_lon + max_lon) / 2}
+          end
 
         send(live_view_pid, {:push_boat_view, boat_view, center_coord})
 
@@ -289,7 +294,7 @@ defmodule NauticNetWeb.MapLive do
   end
 
   defp maybe_recenter_map(socket, center_coord) do
-    if socket.assigns.needs_centering? do
+    if socket.assigns.needs_centering? and center_coord != nil do
       socket
       |> set_map_view(center_coord)
       |> assign(:needs_centering?, false)
