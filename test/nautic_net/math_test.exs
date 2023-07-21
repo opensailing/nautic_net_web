@@ -5,7 +5,7 @@ defmodule NauticNet.MathTest do
 
   @delta 0.001
 
-  describe "add_degress/2" do
+  describe "add_degrees/2" do
     test "works" do
       assert_in_delta Math.add_degrees(0, 0), 0, @delta
       assert_in_delta Math.add_degrees(0, 10), 10, @delta
