@@ -38,8 +38,11 @@ defmodule NauticNetWeb.MapLive do
     %{type: :rssi, label: "RSSI", field: :magnitude, unit: :dbm, precision: 0}
   ]
 
-  def mount(_params, _session, socket) do
+  def mount(params, _session, socket) do
     if connected?(socket), do: PubSub.subscribe(NauticNet.PubSub, "leaflet")
+    IO.inspect(params)
+
+    date = if params["date"], do: Date.from_iso8601!(params["date"])
 
     socket =
       socket
@@ -64,9 +67,17 @@ defmodule NauticNetWeb.MapLive do
 
       # Timeline
       |> assign(:inspect_at, DateTime.utc_now())
-      |> select_date(Timex.today(@timezone), @timezone)
+      |> select_date(date || Timex.today(@timezone), @timezone)
 
     {:ok, socket}
+  end
+
+  def handle_params(params, _url, socket) do
+    socket =
+      socket
+      |> assign(date: params["date"])
+
+    {:noreply, socket}
   end
 
   def handle_event(
@@ -128,7 +139,12 @@ defmodule NauticNetWeb.MapLive do
   def handle_event("select_date", %{"date" => date_param}, socket) do
     date = Date.from_iso8601!(date_param)
 
-    {:noreply, select_date(socket, date, socket.assigns.local_date.timezone)}
+    socket =
+      socket
+      |> select_date(date, socket.assigns.local_date.timezone)
+      |> push_patch(to: "/?date=#{date}", replace: true)
+
+    {:noreply, socket}
   end
 
   def handle_event("select_boat", %{"boat_id" => boat_id}, socket) do
