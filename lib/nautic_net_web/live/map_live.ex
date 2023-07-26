@@ -42,8 +42,6 @@ defmodule NauticNetWeb.MapLive do
     if connected?(socket), do: PubSub.subscribe(NauticNet.PubSub, "leaflet")
     IO.inspect(params)
 
-    date = if params["date"], do: Date.from_iso8601!(params["date"])
-
     socket =
       socket
       # UI toggles
@@ -67,7 +65,7 @@ defmodule NauticNetWeb.MapLive do
 
       # Timeline
       |> assign(:inspect_at, DateTime.utc_now())
-      |> select_date(date || Timex.today(@timezone), @timezone)
+      |> select_date(params)
 
     {:ok, socket}
   end
@@ -76,6 +74,7 @@ defmodule NauticNetWeb.MapLive do
     socket =
       socket
       |> assign(date: params["date"])
+      |> assign(start_time: params["start_time"])
 
     {:noreply, socket}
   end
@@ -105,15 +104,26 @@ defmodule NauticNetWeb.MapLive do
   end
 
   def handle_event("update_range", %{"min" => min, "max" => max}, socket) do
+    IO.inspect "+++++++++++++++++++++++++++++++++"
+    IO.inspect min
+    IO.inspect max
+
     range_start_at = parse_unix_datetime(min, socket.assigns.local_date.timezone)
     range_end_at = parse_unix_datetime(max, socket.assigns.local_date.timezone)
+    IO.inspect range_start_at
+    IO.inspect range_end_at
+    start_time = "#{range_start_at.hour}:#{range_start_at.minute}:#{range_start_at.second}"
 
     {:noreply,
      socket
      |> assign(:range_start_at, range_start_at)
+     |> assign(:start_time, start_time)
      |> assign(:range_end_at, range_end_at)
      |> constrain_inspect_at()
-     |> push_map_state()}
+     |> push_map_state()
+     |> push_patch(to: "/?date=#{socket.assigns.date || Timex.today(@timezone)}&start_time=#{start_time}", replace: true)
+    }
+
   end
 
   def handle_event("set_boat_visible", %{"boat-id" => boat_id} = params, socket) do
@@ -136,13 +146,13 @@ defmodule NauticNetWeb.MapLive do
     {:noreply, socket}
   end
 
-  def handle_event("select_date", %{"date" => date_param}, socket) do
-    date = Date.from_iso8601!(date_param)
+  def handle_event("select_date", params, socket) do
+    # date = Date.from_iso8601!(date_param)
 
     socket =
       socket
-      |> select_date(date, socket.assigns.local_date.timezone)
-      |> push_patch(to: "/?date=#{date}", replace: true)
+      |> select_date(params)
+      |> push_patch(to: "/?date=#{params["date"]}", replace: true)
 
     {:noreply, socket}
   end
@@ -449,8 +459,10 @@ defmodule NauticNetWeb.MapLive do
   # end
 
   # Set the date, boats, and data sources
-  defp select_date(socket, date, timezone) do
-    local_date = %LocalDate{date: date, timezone: timezone}
+  defp select_date(socket, params) do
+    date = if params["date"], do: Date.from_iso8601!(params["date"])
+    date = date || Timex.today(@timezone)
+    local_date = %LocalDate{date: date, timezone: @timezone}
 
     signals =
       local_date
@@ -461,17 +473,28 @@ defmodule NauticNetWeb.MapLive do
 
     # Set up the range for the main slider
     {first_sample_at, last_sample_at} = Playback.get_sample_range_on(local_date)
+    range_start_at =
+      if params["date"] && params["start_time"] do
+        "#{params["date"]}T#{params["start_time"]}"
+        |> NaiveDateTime.from_iso8601!()
+        |> Timex.to_datetime(@timezone)
+      else
+        first_sample_at
+      end
 
+    start_time = if params["start_time"], do: params["start_time"], else: "00:00:00"
     first_position_signal = Enum.find(signals, &(&1.channel.type == :position))
 
     socket
     |> assign(:local_date, local_date)
+    |> assign(:date, Date.to_string(local_date.date))
     |> unsubscribe_from_boats()
     |> assign(:signals, signals)
     |> subscribe_to_boats()
     |> assign(:first_sample_at, first_sample_at)
     |> assign(:last_sample_at, last_sample_at)
-    |> assign(:range_start_at, first_sample_at)
+    |> assign(:range_start_at, range_start_at)
+    |> assign(:start_time, start_time)
     |> assign(:range_end_at, last_sample_at)
     |> constrain_inspect_at()
     |> push_event("configure", %{
