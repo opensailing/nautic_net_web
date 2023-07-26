@@ -108,8 +108,8 @@ defmodule NauticNetWeb.MapLive do
     range_start_at = parse_unix_datetime(min, socket.assigns.local_date.timezone)
     range_end_at = parse_unix_datetime(max, socket.assigns.local_date.timezone)
 
-    from = "#{range_start_at.hour}:#{range_start_at.minute}:#{range_start_at.second}"
-    to = "#{range_end_at.hour}:#{range_end_at.minute}:#{range_end_at.second}"
+    from = range_start_at |> DateTime.to_time |> Time.to_string |> String.split(".") |> List.first
+    to = range_end_at |> DateTime.to_time |> Time.to_string |> String.split(".") |> List.first
 
     {:noreply,
      socket
@@ -352,7 +352,9 @@ defmodule NauticNetWeb.MapLive do
       first_sample_at: DateTime.to_unix(assigns.first_sample_at),
       last_sample_at: DateTime.to_unix(assigns.last_sample_at),
       range_start_at: DateTime.to_unix(assigns.range_start_at),
+      from: DateTime.to_unix(assigns.range_start_at),
       range_end_at: DateTime.to_unix(assigns.range_end_at),
+      to: DateTime.to_unix(assigns.range_end_at),
       inspect_at: DateTime.to_unix(assigns.inspect_at)
     })
   end
