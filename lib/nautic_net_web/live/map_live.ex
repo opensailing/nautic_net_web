@@ -75,6 +75,7 @@ defmodule NauticNetWeb.MapLive do
       socket
       |> assign(date: params["date"])
       |> assign(from: params["from"])
+      |> assign(to: params["to"])
 
     {:noreply, socket}
   end
@@ -108,15 +109,17 @@ defmodule NauticNetWeb.MapLive do
     range_end_at = parse_unix_datetime(max, socket.assigns.local_date.timezone)
 
     from = "#{range_start_at.hour}:#{range_start_at.minute}:#{range_start_at.second}"
+    to = "#{range_end_at.hour}:#{range_end_at.minute}:#{range_end_at.second}"
 
     {:noreply,
      socket
      |> assign(:range_start_at, range_start_at)
      |> assign(:from, from)
      |> assign(:range_end_at, range_end_at)
+     |> assign(:to, to)
      |> constrain_inspect_at()
      |> push_map_state()
-     |> push_patch(to: "/?date=#{socket.assigns.date || Timex.today(@timezone)}&from=#{from}", replace: true)
+     |> push_patch(to: "/?date=#{socket.assigns.date || Timex.today(@timezone)}&from=#{from}&to=#{to}", replace: true)
     }
 
   end
@@ -475,7 +478,17 @@ defmodule NauticNetWeb.MapLive do
         first_sample_at
       end
 
+    range_end_at =
+      if params["date"] && params["to"] do
+        "#{params["date"]}T#{params["to"]}"
+        |> NaiveDateTime.from_iso8601!()
+        |> Timex.to_datetime(@timezone)
+      else
+        last_sample_at
+      end
+
     from = if params["from"], do: params["from"], else: "00:00:00"
+    to = if params["to"], do: params["to"], else: "23:59:59"
     first_position_signal = Enum.find(signals, &(&1.channel.type == :position))
 
     socket
@@ -488,7 +501,8 @@ defmodule NauticNetWeb.MapLive do
     |> assign(:last_sample_at, last_sample_at)
     |> assign(:range_start_at, range_start_at)
     |> assign(:from, from)
-    |> assign(:range_end_at, last_sample_at)
+    |> assign(:range_end_at, range_end_at)
+    |> assign(:to, to)
     |> constrain_inspect_at()
     |> push_event("configure", %{
       id: "range-slider",
