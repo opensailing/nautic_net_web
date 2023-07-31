@@ -494,7 +494,6 @@ defmodule NauticNetWeb.MapLive do
     local_date = %LocalDate{date: date, timezone: @timezone}
     selected_boats = selected_boats(params["boats"])
 
-
     signals =
       local_date
       |> Playback.list_channels_on()
