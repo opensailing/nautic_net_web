@@ -75,6 +75,7 @@ defmodule NauticNetWeb.MapLive do
       |> assign(from: params["from"])
       |> assign(to: params["to"])
       |> assign(position: params["position"])
+      |> assign(boats: selected_boats(params["boats"]))
 
     {:noreply, socket}
   end
@@ -107,9 +108,15 @@ defmodule NauticNetWeb.MapLive do
     range_start_at = parse_unix_datetime(min, socket.assigns.local_date.timezone)
     range_end_at = parse_unix_datetime(max, socket.assigns.local_date.timezone)
 
-    from = to_time(range_start_at)
-    to = to_time(range_end_at)
-    position = to_time(socket.assigns.inspect_at)
+    query_params =
+      %{
+        date: socket.assigns.date,
+        from: to_time(range_start_at),
+        to: to_time(range_end_at),
+        position: to_time(socket.assigns.inspect_at),
+        boats: socket.assigns.boats
+      }
+      |> Plug.Conn.Query.encode()
 
     {:noreply,
      socket
@@ -117,15 +124,18 @@ defmodule NauticNetWeb.MapLive do
      |> assign(:range_end_at, range_end_at)
      |> constrain_inspect_at()
      |> push_map_state()
-     |> push_patch(
-       to:
-         "/?date=#{socket.assigns.date || Timex.today(@timezone)}&from=#{from}&to=#{to}&position=#{position}",
-       replace: true
-     )}
+     |> push_patch(to: "/?#{query_params}", replace: true)}
   end
 
   def handle_event("set_boat_visible", %{"boat-id" => boat_id} = params, socket) do
     visible? = params["value"] == "on"
+
+    new_boats =
+      if visible? do
+        [boat_id | socket.assigns.boats]
+      else
+        Enum.filter(socket.assigns.boats, fn bid -> bid != boat_id end)
+      end
 
     new_signals =
       Enum.map(socket.assigns.signals, fn
@@ -136,10 +146,22 @@ defmodule NauticNetWeb.MapLive do
           signal
       end)
 
+    query_params =
+      %{
+        date: socket.assigns.date,
+        from: socket.assigns.from,
+        to: socket.assigns.to,
+        position: socket.assigns.position,
+        boats: new_boats
+      }
+      |> Plug.Conn.Query.encode()
+
     socket =
       socket
       |> assign(:signals, new_signals)
+      |> assign(:boats, new_boats)
       |> push_event("set_boat_visible", %{boat_id: boat_id, visible: visible?})
+      |> push_patch(to: "/?#{query_params}", replace: true)
 
     {:noreply, socket}
   end
@@ -368,9 +390,15 @@ defmodule NauticNetWeb.MapLive do
         assigns.inspect_at
       end
 
-    from = to_time(socket.assigns.range_start_at)
-    to = to_time(socket.assigns.range_end_at)
-    position = to_time(new_inspect_at)
+    query_params =
+      %{
+        date: socket.assigns.date,
+        from: to_time(socket.assigns.range_start_at),
+        to: to_time(socket.assigns.range_end_at),
+        position: to_time(new_inspect_at),
+        boats: socket.assigns.boats
+      }
+      |> Plug.Conn.Query.encode()
 
     new_signals = Playback.fill_latest_samples(assigns.signals, new_inspect_at)
 
@@ -378,10 +406,7 @@ defmodule NauticNetWeb.MapLive do
     |> assign(:signals, new_signals)
     |> assign(:inspect_at, new_inspect_at)
     |> push_map_state()
-    |> push_patch(
-      to: "/?date=#{socket.assigns.date}&from=#{from}&to=#{to}&position=#{position}",
-      replace: true
-    )
+    |> push_patch(to: "/?#{query_params}", replace: true)
   end
 
   defp set_live_position(socket) do
@@ -467,12 +492,22 @@ defmodule NauticNetWeb.MapLive do
     date = if params["date"], do: Date.from_iso8601!(params["date"])
     date = date || Timex.today(@timezone)
     local_date = %LocalDate{date: date, timezone: @timezone}
+    selected_boats = selected_boats(params["boats"])
+
 
     signals =
       local_date
       |> Playback.list_channels_on()
       |> Enum.map(fn %Channel{boat: boat} = channel ->
-        %Signal{channel: channel, color: boat_color(boat.id)}
+        signal = %Signal{channel: channel, color: boat_color(boat.id)}
+
+        case signal do
+          %Signal{channel: %{type: :position, boat: %{id: boat_id}}} = signal ->
+            %{signal | visible?: boat_id in selected_boats}
+
+          signal ->
+            signal
+        end
       end)
 
     # Set up the range for the main slider
@@ -493,8 +528,12 @@ defmodule NauticNetWeb.MapLive do
     |> assign(:first_sample_at, first_sample_at)
     |> assign(:last_sample_at, last_sample_at)
     |> assign(:range_start_at, range_start_at)
+    |> assign(:from, range_start_at)
     |> assign(:range_end_at, range_end_at)
+    |> assign(:to, range_end_at)
     |> assign(:inspect_at, position)
+    |> assign(:position, position)
+    |> assign(:boats, selected_boats)
     |> constrain_inspect_at()
     |> push_event("configure", %{
       id: "range-slider",
@@ -563,6 +602,10 @@ defmodule NauticNetWeb.MapLive do
     |> Time.to_string()
     |> String.split(".")
     |> List.first()
+  end
+
+  defp selected_boats(boats) do
+    if is_list(boats), do: boats, else: []
   end
 
   attr(:label, :string, required: true)
