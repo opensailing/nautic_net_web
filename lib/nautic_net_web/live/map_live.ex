@@ -74,7 +74,7 @@ defmodule NauticNetWeb.MapLive do
       |> assign(date: params["date"])
       |> assign(from: params["from"])
       |> assign(to: params["to"])
-      |> assign(position: params["position"])
+      |> assign(playback: params["playback"])
       |> assign(boats: selected_boats(params["boats"]))
 
     {:noreply, socket}
@@ -113,7 +113,7 @@ defmodule NauticNetWeb.MapLive do
         date: socket.assigns.date,
         from: to_time(range_start_at),
         to: to_time(range_end_at),
-        position: to_time(socket.assigns.inspect_at),
+        playback: to_time(socket.assigns.inspect_at),
         boats: socket.assigns.boats
       }
       |> Plug.Conn.Query.encode()
@@ -151,7 +151,7 @@ defmodule NauticNetWeb.MapLive do
         date: socket.assigns.date,
         from: socket.assigns.from,
         to: socket.assigns.to,
-        position: socket.assigns.position,
+        playback: socket.assigns.playback,
         boats: new_boats
       }
       |> Plug.Conn.Query.encode()
@@ -384,7 +384,7 @@ defmodule NauticNetWeb.MapLive do
     # 10751 is the max value for position
 
     new_inspect_at =
-      if pos = params["position"] do
+      if pos = params["playback"] do
         parse_unix_datetime(pos, assigns.local_date.timezone)
       else
         assigns.inspect_at
@@ -395,7 +395,7 @@ defmodule NauticNetWeb.MapLive do
         date: socket.assigns.date,
         from: to_time(socket.assigns.range_start_at),
         to: to_time(socket.assigns.range_end_at),
-        position: to_time(new_inspect_at),
+        playback: to_time(new_inspect_at),
         boats: socket.assigns.boats
       }
       |> Plug.Conn.Query.encode()
@@ -514,7 +514,7 @@ defmodule NauticNetWeb.MapLive do
 
     range_start_at = build_datetime(params["date"], params["from"], first_sample_at)
     range_end_at = build_datetime(params["date"], params["to"], last_sample_at)
-    position = build_datetime(params["date"], params["position"], DateTime.utc_now())
+    playback = build_datetime(params["date"], params["playback"], DateTime.utc_now())
 
     first_position_signal = Enum.find(signals, &(&1.channel.type == :position))
 
@@ -530,8 +530,8 @@ defmodule NauticNetWeb.MapLive do
     |> assign(:from, range_start_at)
     |> assign(:range_end_at, range_end_at)
     |> assign(:to, range_end_at)
-    |> assign(:inspect_at, position)
-    |> assign(:position, position)
+    |> assign(:inspect_at, playback)
+    |> assign(:playback, playback)
     |> assign(:boats, selected_boats)
     |> constrain_inspect_at()
     # |> push_event("configure", %{
