@@ -108,8 +108,15 @@ defmodule NauticNetWeb.MapLive do
     range_start_at = parse_unix_datetime(min, socket.assigns.local_date.timezone)
     range_end_at = parse_unix_datetime(max, socket.assigns.local_date.timezone)
 
-    from = range_start_at |> DateTime.to_time |> Time.to_string |> String.split(".") |> List.first
-    to = range_end_at |> DateTime.to_time |> Time.to_string |> String.split(".") |> List.first
+    from =
+      range_start_at
+      |> DateTime.to_time()
+      |> Time.to_string()
+      |> String.split(".")
+      |> List.first()
+
+    to =
+      range_end_at |> DateTime.to_time() |> Time.to_string() |> String.split(".") |> List.first()
 
     {:noreply,
      socket
@@ -119,9 +126,10 @@ defmodule NauticNetWeb.MapLive do
      |> assign(:to, to)
      |> constrain_inspect_at()
      |> push_map_state()
-     |> push_patch(to: "/?date=#{socket.assigns.date || Timex.today(@timezone)}&from=#{from}&to=#{to}", replace: true)
-    }
-
+     |> push_patch(
+       to: "/?date=#{socket.assigns.date || Timex.today(@timezone)}&from=#{from}&to=#{to}",
+       replace: true
+     )}
   end
 
   def handle_event("set_boat_visible", %{"boat-id" => boat_id} = params, socket) do
@@ -471,6 +479,7 @@ defmodule NauticNetWeb.MapLive do
 
     # Set up the range for the main slider
     {first_sample_at, last_sample_at} = Playback.get_sample_range_on(local_date)
+
     range_start_at =
       if params["date"] && params["from"] do
         "#{params["date"]}T#{params["from"]}"
