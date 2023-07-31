@@ -23,10 +23,12 @@ import { LiveSocket } from "phoenix_live_view";
 import topbar from "../vendor/topbar";
 import LeafletHook from "./leaflet";
 import RangeSliderHook from "./rangeSlider";
+import SailboatPolarPlotHook from "./sailboatPolarPlot";
 
 let Hooks = {
   RangeSliderHook,
   LeafletHook,
+  SailboatPolarPlotHook
 };
 
 let csrfToken = document

@@ -5,9 +5,12 @@ defmodule NauticNet.SailboatPolars do
   Also provides functionality for interpolating the data.
   """
 
-  require Explorer.DataFrame
   alias Explorer.DataFrame, as: DF
   alias Explorer.Series, as: S
+
+  alias NauticNet.SailboatPolars.Interpolation
+
+  require Explorer.DataFrame
 
   @miles_per_sec_to_kts 3128.31
 
@@ -50,8 +53,8 @@ defmodule NauticNet.SailboatPolars do
         {row["row_names"], Enum.map(tws_cols, &row[&1]) |> Explorer.Series.from_list()}
       end)
 
-    # note: these are vmgs. We need to check if the other speeds are too.
-    # to convert from vmg to tws (boat speed), just divide by cos(twa)
+    run_twa = optimal_data["Opt Run Angle"]
+
     run_speed_kts =
       @miles_per_sec_to_kts
       |> S.divide(optimal_data["Run VMG"])
@@ -59,7 +62,7 @@ defmodule NauticNet.SailboatPolars do
         S.cos(
           S.subtract(
             :math.pi(),
-            S.multiply(optimal_data["Opt Run Angle"], :math.pi() / 180)
+            S.multiply(run_twa, :math.pi() / 180)
           )
         )
       )
@@ -68,33 +71,90 @@ defmodule NauticNet.SailboatPolars do
       convert_series(
         run_speed_kts,
         tws_series,
-        optimal_data["Opt Run Angle"]
+        run_twa
       )
+
+    beat_twa = optimal_data["Opt Beat Angle"]
 
     beat_speed_kts =
       @miles_per_sec_to_kts
       |> S.divide(optimal_data["Beat VMG"])
-      |> S.divide(S.cos(S.multiply(optimal_data["Opt Beat Angle"], :math.pi() / 180)))
+      |> S.divide(S.cos(S.multiply(beat_twa, :math.pi() / 180)))
 
     {beat_aws_kts, beat_awa} =
       convert_series(
         beat_speed_kts,
         tws_series,
-        optimal_data["Opt Beat Angle"]
+        beat_twa
       )
 
     optimal_angles_df =
       DF.new(%{
         "beat_awa" => beat_awa,
+        "beat_twa" => beat_twa,
         "beat_aws" => beat_aws_kts,
         "beat_boat_speed" => beat_speed_kts,
         "run_awa" => run_awa,
+        "run_twa" => run_twa,
         "run_aws" => run_aws_kts,
         "run_boat_speed" => run_speed_kts,
         "tws" => tws_series
       })
 
     {df, optimal_angles_df}
+  end
+
+  @doc """
+  Build polar interpolation from the dataframes loaded in `load/1`
+  """
+  def polar_interpolation(polar_df, run_beat_df, opts \\ []) do
+    opts = Keyword.validate!(opts, force_zero: false, interpolate_run_and_beat: false)
+
+    run_beat_df
+    |> DF.to_rows()
+    |> Enum.map(fn row ->
+      tws = trunc(row["tws"])
+      beat_theta = row["beat_twa"]
+      beat_boat_speed = row["beat_boat_speed"]
+      run_theta = row["run_twa"]
+      run_boat_speed = row["run_boat_speed"]
+
+      run_beat_theta = [beat_theta, run_theta]
+      run_beat_r = [beat_boat_speed, run_boat_speed]
+
+      {theta, r} =
+        if opts[:interpolate_run_and_beat] do
+          {run_beat_theta, run_beat_r}
+        else
+          {[], []}
+        end
+
+      {theta, r} =
+        polar_df
+        |> DF.select(["twa", "awa_#{tws}", "boat_speed_#{tws}"])
+        |> DF.rename("awa_#{tws}": "awa", "boat_speed_#{tws}": "boat_speed")
+        |> DF.to_rows()
+        |> Enum.reduce({theta, r}, fn row, {theta, r} ->
+          {[row["twa"] | theta], [row["boat_speed"] | r]}
+        end)
+
+      given_theta = theta
+
+      {r, theta} =
+        if opts[:force_zero] do
+          theta = Nx.tensor([0 | theta])
+          r = Nx.tensor([0 | r])
+          {r, theta}
+        else
+          theta = Nx.tensor(theta)
+          r = Nx.tensor(r)
+          {r, theta}
+        end
+
+      model = Interpolation.fit(theta, r)
+
+      {tws, {model, given_theta, beat_theta, run_theta}}
+    end)
   end
 
   defp calculate_speed_in_kts(df) do
