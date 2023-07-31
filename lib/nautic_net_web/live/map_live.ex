@@ -74,7 +74,7 @@ defmodule NauticNetWeb.MapLive do
       |> assign(date: params["date"])
       |> assign(from: params["from"])
       |> assign(to: params["to"])
-      |> assign(to: params["position"])
+      |> assign(position: params["position"])
 
     {:noreply, socket}
   end
