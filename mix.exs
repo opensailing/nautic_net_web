@@ -86,7 +86,9 @@ defmodule NauticNet.MixProject do
       {:exla, "~> 0.4"},
       {:ex_cldr_calendars, "~> 1.21"},
       {:protobuf, "~> 0.10.0"},
-      {:rustler, ">= 0.0.0", optional: true},
+      {:rustler, "~> 0.29.0", optional: true, override: true},
+      {:explorer, "~> 0.6.1"},
+      {:nimble_csv, "~> 1.2.0"},
 
       # Timex
       {:timex, "~> 3.7.9"}
