@@ -12,7 +12,7 @@ defmodule NauticNet.SailboatPolars do
 
   require Explorer.DataFrame
 
-  @miles_per_sec_to_kts 3128.31
+  @miles_per_sec_to_kts 3600
 
   @doc """
   Loads the CSV file given by `filename`.
@@ -108,7 +108,7 @@ defmodule NauticNet.SailboatPolars do
   Build polar interpolation from the dataframes loaded in `load/1`
   """
   def polar_interpolation(polar_df, run_beat_df, opts \\ []) do
-    opts = Keyword.validate!(opts, force_zero: false, interpolate_run_and_beat: false)
+    opts = Keyword.validate!(opts, force_zero: false, interpolate_run_and_beat: true)
 
     run_beat_df
     |> DF.to_rows()
@@ -169,12 +169,15 @@ defmodule NauticNet.SailboatPolars do
     tws_cols
     |> Enum.reduce(df, fn col, df ->
       DF.mutate_with(df, fn df ->
-        {result, awa} = convert_series(df[col], tws_df[col], df["twa"])
+        boat_speed = df[col]
+
+        {result, awa} = convert_series(boat_speed, tws_df[col], df["twa"])
 
         col_name = String.trim_trailing(col, " kts")
 
         [
-          {:"boat_speed_#{col_name}", result},
+          {:"boat_speed_#{col_name}", boat_speed},
+          {:"aws_#{col_name}", result},
           {:"awa_#{col_name}", awa}
         ]
       end)

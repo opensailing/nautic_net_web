@@ -2,17 +2,17 @@
   <div />
   <div>
     <div>
-      <.header> Sailboat Polars </.header>
+      <.header> Boat Speed (kts) </.header>
       <.table id="sailboat_polars" rows={@sailboat_polars}>
         <:col :let={row} label="True Wind Angle"><%= row.twa %></:col>
-        <:col :let={row} label="4 kts"><.render_speed_twa speed={row.boat_speed_4} angle={row.twa} /></:col>
-        <:col :let={row} label="6 kts"><.render_speed_twa speed={row.boat_speed_6} angle={row.twa} /></:col>
-        <:col :let={row} label="8 kts"><.render_speed_twa speed={row.boat_speed_8} angle={row.twa} /></:col>
-        <:col :let={row} label="10 kts"><.render_speed_twa speed={row.boat_speed_10} angle={row.twa} /></:col>
-        <:col :let={row} label="12 kts"><.render_speed_twa speed={row.boat_speed_12} angle={row.twa} /></:col>
-        <:col :let={row} label="16 kts"><.render_speed_twa speed={row.boat_speed_16} angle={row.twa} /></:col>
-        <:col :let={row} label="20 kts"><.render_speed_twa speed={row.boat_speed_20} angle={row.twa} /></:col>
-        <:col :let={row} label="24 kts"><.render_speed_twa speed={row.boat_speed_24} angle={row.twa} /></:col>
+        <:col :let={row} label="4 kts"><.float2 value={row.boat_speed_4} /></:col>
+        <:col :let={row} label="6 kts"><.float2 value={row.boat_speed_6} /></:col>
+        <:col :let={row} label="8 kts"><.float2 value={row.boat_speed_8} /></:col>
+        <:col :let={row} label="10 kts"><.float2 value={row.boat_speed_10} /></:col>
+        <:col :let={row} label="12 kts"><.float2 value={row.boat_speed_12} /></:col>
+        <:col :let={row} label="16 kts"><.float2 value={row.boat_speed_16} /></:col>
+        <:col :let={row} label="20 kts"><.float2 value={row.boat_speed_20} /></:col>
+        <:col :let={row} label="24 kts"><.float2 value={row.boat_speed_24} /></:col>
       </.table>
     </div>
     <div>
@@ -20,10 +20,12 @@
       <.table id="run_beat_polars" rows={@run_beat_polars}>
         <:col :let={row} label="True Wind Speed (kts)"><.float2 value={row.tws} /></:col>
         <:col :let={row} label="Beat AWS (kts)"><.float2 value={row.beat_aws} /></:col>
-        <:col :let={row} label="Beat AWA (°)"><.float2 value={row.beat_twa} /></:col>
+        <:col :let={row} label="Beat AWA (°)"><.float2 value={row.beat_awa} /></:col>
+        <:col :let={row} label="Beat TWA (°)"><.float2 value={row.beat_twa} /></:col>
         <:col :let={row} label="Beat Boat Speed (kts)"><.float2 value={row.beat_boat_speed} /></:col>
         <:col :let={row} label="Run AWS (kts)"><.float2 value={row.run_aws} /></:col>
-        <:col :let={row} label="Run AWA (°)"><.float2 value={row.run_twa} /></:col>
+        <:col :let={row} label="Run AWA (°)"><.float2 value={row.run_awa} /></:col>
+        <:col :let={row} label="Run TWA (°)"><.float2 value={row.run_twa} /></:col>
         <:col :let={row} label="Run Boat Speed (kts)"><.float2 value={row.run_boat_speed} /></:col>
       </.table>
     </div>

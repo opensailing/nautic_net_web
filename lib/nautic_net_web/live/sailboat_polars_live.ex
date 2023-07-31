@@ -74,6 +74,7 @@ defmodule NauticNetWeb.SailboatPolarsLive do
     |> DF.to_rows()
     |> Enum.with_index(fn row, idx ->
       row
+      |> Enum.reject(fn {k, _} -> String.starts_with?(k, "aws_") end)
       |> Enum.map(fn {k, v} -> {String.to_existing_atom(k), v} end)
       |> then(&struct!(Polars, [{:id, idx} | &1]))
     end)
@@ -112,7 +113,7 @@ defmodule NauticNetWeb.SailboatPolarsLive do
   defp plot_json(polars_df, run_beat_df, angles_of_interest) do
     data_by_tws = SailboatPolars.polar_interpolation(polars_df, run_beat_df)
 
-    radius_marks = Enum.to_list(4..16//2) ++ Enum.to_list(20..32//4)
+    radius_marks = Enum.to_list(4..16//2)
 
     vl_grid =
       PolarPlot.plot_grid(
