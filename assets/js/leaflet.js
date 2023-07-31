@@ -49,7 +49,7 @@ const drawArrowIcon = (ctx, speed, width, height) => {
 };
 
 L.Canvas.include({
-  _updateCustomIconMarker: function (layer) {
+  _updateCustomIconMarker: function(layer) {
     if (!this._drawing || layer._empty()) {
       return;
     }
@@ -74,10 +74,12 @@ L.Canvas.include({
 });
 
 const CustomIconMarker = L.CircleMarker.extend({
-  _updatePath: function () {
+  _updatePath: function() {
     this._renderer._updateCustomIconMarker(this);
   },
 });
+
+const boatIcon = new Leaflet.Icon({ iconUrl: '/images/boat.svg', iconSize: [40, 40] });
 
 class BoatView {
   boatId = null;
@@ -90,7 +92,7 @@ class BoatView {
     this.boatId = boatId;
     this.map = map;
     this.trackCoordinates = trackCoordinates;
-    this.marker = Leaflet.marker([0, 0]).addTo(map);
+    this.marker = Leaflet.marker([0, 0], { icon: boatIcon }).addTo(map);
     this.polyline = Leaflet.polyline([], { color: trackColor }).addTo(map);
   }
 
@@ -104,7 +106,7 @@ class BoatView {
     }
   }
 
-  setTime(startTime, endTime, inspectTime) {
+  setTime(startTime, _endTime, inspectTime) {
     const newCoords = this.trackCoordinates.filter(
       (c) => c.time >= startTime && c.time <= inspectTime
     );
@@ -336,7 +338,7 @@ const LeafletHook = {
       });
 
       const layer = L.geoJSON(geojsonData, {
-        pointToLayer: function (feature, latlng) {
+        pointToLayer: function(feature, latlng) {
           const { direction, speed } = feature.properties;
 
           if (speed == 0) {
