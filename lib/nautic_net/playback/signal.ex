@@ -10,7 +10,7 @@ defmodule NauticNet.Playback.Signal do
     latest_sample: nil,
 
     # If the signal is shown at all
-    visible?: true,
+    visible?: false,
 
     # Hex foreground color
     color: "#000000"
