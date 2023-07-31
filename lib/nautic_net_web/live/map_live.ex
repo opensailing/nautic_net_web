@@ -2,75 +2,71 @@ defmodule NauticNetWeb.MapLive do
   use NauticNetWeb, :live_view
 
   alias Phoenix.PubSub
-  alias NauticNet.Animation
-  alias NauticNet.Data.Sample
-  alias NauticNet.Coordinates
+  alias NauticNet.LocalDate
   alias NauticNet.Playback
-  alias NauticNet.Playback.DataSource
+  alias NauticNet.Playback.Channel
+  alias NauticNet.Playback.Signal
+  alias NauticNet.Racing.Boat
 
   require Logger
+
+  @default_bounding_box %{
+    "min_lat" => 42.1666,
+    "max_lat" => 42.4093,
+    "min_lon" => -71.0473,
+    "max_lon" => -70.8557
+  }
+
+  @timezone "America/New_York"
+
+  @signal_views [
+    %{type: :true_heading, label: "Compass Heading (True)", field: :angle, unit: :deg_true},
+    %{
+      type: :magnetic_heading,
+      label: "Compass Heading (Magnetic)",
+      field: :angle,
+      unit: :deg_magnetic
+    },
+    %{type: :velocity_over_ground, label: "COG", field: :angle, unit: :deg},
+    %{type: :speed_through_water, label: "Speed Thru Water", field: :magnitude, unit: :kn},
+    %{type: :velocity_over_ground, label: "SOG", field: :magnitude, unit: :kn},
+    %{type: :apparent_wind, label: "Apparent Wind", field: :angle, unit: :deg},
+    %{type: :apparent_wind, label: "Apparent Wind", field: :magnitude, unit: :kn},
+    %{type: :water_depth, label: "Depth", field: :magnitude, unit: :ft},
+    %{type: :battery, label: "Battery", field: :magnitude, unit: :percent, precision: 0},
+    %{type: :heel, label: "Heel", field: :angle, unit: :deg},
+    %{type: :rssi, label: "RSSI", field: :magnitude, unit: :dbm, precision: 0}
+  ]
 
   def mount(_params, _session, socket) do
     if connected?(socket), do: PubSub.subscribe(NauticNet.PubSub, "leaflet")
 
-    {now, us} = DateTime.utc_now() |> DateTime.to_gregorian_seconds()
-    now = now + us / 1_000_000
-
-    min_lat = 42.1666
-    max_lat = 42.4093
-    min_lon = -71.0473
-    max_lon = -70.8557
-
     socket =
       socket
-      |> assign(:timezone, "America/New_York")
-      |> assign(:animate_time, false)
-      |> assign(:show_track, true)
-      |> assign(:last_current_event_sent_at, now)
-      |> assign(:bounding_box, %{
-        "min_lat" => min_lat,
-        "min_lon" => min_lon,
-        "max_lat" => max_lat,
-        "max_lon" => max_lon
-      })
-      |> assign(:last_current_event_index, nil)
-      |> assign(:is_live, false)
-      |> assign_dates()
-      |> assign(:data_sources_modal_visible?, false)
-      # |> assign_coordinates(Coordinates.get_coordinates("trip-01.csv"))
-      |> assign_selected_boat_coordinates()
+      # UI toggles
+      |> assign(:tracks_visible?, true)
+      |> assign(:water_visible?, false)
+      |> assign(:live?, false)
+      |> assign(:signals_modal_visible?, false)
+
+      # Water currents
+      |> assign(:last_water_event_sent_at, now_ms())
+      |> assign(:last_water_event_index, nil)
+
+      # Data
+      |> assign(:signals, [])
+      |> assign(:signal_views, @signal_views)
+
+      # Map
+      |> assign(:needs_centering?, true)
+      |> assign(:bounding_box, @default_bounding_box)
+      |> assign(:zoom_level, 15)
+
+      # Timeline
+      |> assign(:inspect_at, DateTime.utc_now())
+      |> select_date(Timex.today(@timezone), @timezone)
 
     {:ok, socket}
-  end
-
-  defp assign_selected_boat_coordinates(socket) do
-    coordinates =
-      Playback.list_coordinates(
-        socket.assigns.selected_boat,
-        socket.assigns.selected_date,
-        socket.assigns.timezone,
-        socket.assigns.data_sources
-      )
-
-    assign_coordinates(socket, coordinates)
-  end
-
-  defp assign_coordinates(socket, [initial_coordinates | _] = coordinates) do
-    map_center = Coordinates.get_center(coordinates)
-
-    Animation.set_track_coordinates(coordinates)
-    Animation.set_map_view(map_center)
-    Animation.set_marker_coordinates(initial_coordinates)
-
-    socket
-    |> assign(:current_coordinates, initial_coordinates)
-    |> assign(:coordinates, coordinates)
-    |> assign(:map_center, map_center)
-    |> assign(:min_position, 0)
-    |> assign(:max_position, Enum.count(coordinates) - 1)
-    |> assign(:current_min_position, 0)
-    |> assign(:current_max_position, Enum.count(coordinates) - 1)
-    |> assign(:current_position, 0)
   end
 
   def handle_event(
@@ -78,275 +74,466 @@ defmodule NauticNetWeb.MapLive do
         %{"bounds" => bounding_box, "zoom_level" => zoom_level},
         socket
       ) do
-    handle_event(
-      "set_position",
-      %{"zoom_level" => zoom_level, "viewport_change" => true},
-      assign(socket, :bounding_box, bounding_box)
-    )
+    {:noreply,
+     socket
+     |> assign(:bounding_box, bounding_box)
+     |> set_position(%{"zoom_level" => zoom_level, "viewport_change" => true})}
   end
 
-  def handle_event("set_position", event_data, %{assigns: assigns} = socket) do
-    {throttle, new_position} = set_throttle_and_position(event_data, assigns)
-
-    viewport_change = event_data["viewport_change"] == true
-
-    zoom_level = event_data["zoom_level"] || 15
-
-    new_coordinates = Enum.at(assigns.coordinates, new_position)
-    Animation.set_marker_position(new_position)
-
-    # epoch for fixed dataset is from 59898.0 to 59904.0
-    # 10751 is the max value for position
-
-    {now, us} = DateTime.utc_now() |> DateTime.to_gregorian_seconds()
-    now = now + us / 1_000_000
-    diff = now - assigns.last_current_event_sent_at
-
-    {time, _new_lat, _new_lon} = new_coordinates
-    {t0, _, _} = Enum.at(assigns.coordinates, 0)
-
-    milliseconds_diff = DateTime.diff(time, t0, :millisecond)
-    time = NauticNet.NetCDF.epoch() + milliseconds_diff / (24 * :timer.hours(1))
-
-    index = NauticNet.NetCDF.get_geodata_time_index(time)
-
-    {last_current_event_index, last_current_event_sent_at, current_data} =
-      if (index != assigns.last_current_event_index or viewport_change) and
-           ((throttle and diff > 1 / 30) or not throttle) do
-        %{
-          "min_lat" => min_lat,
-          "min_lon" => min_lon,
-          "max_lat" => max_lat,
-          "max_lon" => max_lon
-        } = assigns.bounding_box
-
-        data =
-          index
-          |> NauticNet.NetCDF.get_geodata(min_lat, max_lat, min_lon, max_lon, zoom_level)
-          |> Base.encode64()
-
-        {index, now, data}
-      else
-        {assigns.last_current_event_index, assigns.last_current_event_sent_at, nil}
-      end
-
-    data_sources =
-      Playback.fill_latest_samples(
-        socket.assigns.selected_boat,
-        current_datetime(new_coordinates),
-        socket.assigns.data_sources
-      )
-
-    socket =
-      socket
-      |> assign(:current_position, new_position)
-      |> assign(:current_coordinates, new_coordinates)
-      |> assign(:last_current_event_sent_at, last_current_event_sent_at)
-      |> assign(:last_current_event_index, last_current_event_index)
-      |> assign(:data_sources, data_sources)
-
-    socket =
-      if current_data do
-        push_event(socket, "add_current_markers", %{current_data: current_data})
-      else
-        socket
-      end
-
-    {:noreply, socket}
+  def handle_event("set_position", params, socket) do
+    {:noreply, set_position(socket, params)}
   end
 
   def handle_event("clear", _, socket), do: {:noreply, push_event(socket, "clear_polyline", %{})}
 
-  def handle_event("toggle_track", _, %{assigns: %{show_track: value}} = socket) do
+  def handle_event("toggle_track", _, %{assigns: %{tracks_visible?: value}} = socket) do
     {:noreply,
      socket
-     |> assign(:show_track, !value)
-     |> push_event("toggle_track", %{value: !value})}
+     |> assign(:tracks_visible?, not value)
+     |> push_event("toggle_track", %{value: not value})}
   end
 
   def handle_event("update_range", %{"min" => min, "max" => max}, socket) do
-    {min_value, _} = Integer.parse(min)
-    {max_value, _} = Integer.parse(max)
-
-    Animation.set_marker_position(min_value)
+    range_start_at = parse_unix_datetime(min, socket.assigns.local_date.timezone)
+    range_end_at = parse_unix_datetime(max, socket.assigns.local_date.timezone)
 
     {:noreply,
      socket
-     |> assign(:current_coordinates, Enum.at(socket.assigns.coordinates, min_value))
-     |> assign(:current_position, min_value)
-     |> assign(:current_min_position, min_value)
-     |> assign(:current_max_position, max_value)}
+     |> assign(:range_start_at, range_start_at)
+     |> assign(:range_end_at, range_end_at)
+     |> constrain_inspect_at()
+     |> push_map_state()}
+  end
+
+  def handle_event("set_boat_visible", %{"boat-id" => boat_id} = params, socket) do
+    visible? = params["value"] == "on"
+
+    new_signals =
+      Enum.map(socket.assigns.signals, fn
+        %Signal{channel: %{type: :position, boat: %{id: ^boat_id}}} = signal ->
+          %{signal | visible?: visible?}
+
+        signal ->
+          signal
+      end)
+
+    socket =
+      socket
+      |> assign(:signals, new_signals)
+      |> push_event("set_boat_visible", %{boat_id: boat_id, visible: visible?})
+
+    {:noreply, socket}
   end
 
   def handle_event("select_date", %{"date" => date_param}, socket) do
     date = Date.from_iso8601!(date_param)
 
-    {:noreply, select_date(socket, date)}
+    {:noreply, select_date(socket, date, socket.assigns.local_date.timezone)}
   end
 
   def handle_event("select_boat", %{"boat_id" => boat_id}, socket) do
-    boat = Enum.find(socket.assigns.boats, &(&1.id == boat_id)) || raise "invalid boat_id"
-
-    {:noreply, select_boat(socket, boat)}
+    {:noreply, select_boat(socket, boat_id)}
   end
 
-  def handle_event("is_live_changed", %{"is_live" => is_live_param}, socket) do
-    is_live = is_live_param == "true"
+  def handle_event("live_changed", %{"live" => live_param}, socket) do
+    live? = live_param == "true"
+
+    if live?, do: send(self(), :live_tick)
 
     {
       :noreply,
       socket
-      |> assign(:is_live, is_live)
+      |> assign(:live?, live?)
       # RangeSlider state must be updated via JS hook because it has phx-update="ignore"
-      |> push_event("set_enabled", %{id: "range", enabled: not is_live})
+      |> push_event("set_enabled", %{id: "range-slider", enabled: not live?})
       # TODO: More things
     }
   end
 
-  def handle_event("select_data_sources", params, socket) do
-    {:noreply, select_sensors(socket, params)}
+  def handle_event("water_visible_changed", %{"water_visible" => water_visible_param}, socket) do
+    socket =
+      case water_visible_param do
+        "true" ->
+          socket
+          |> assign(:water_visible?, true)
+          |> set_position(%{"viewport_change" => true})
+
+        _false ->
+          socket
+          |> assign(:water_visible?, false)
+          |> push_event("clear_water_markers", %{})
+      end
+
+    {:noreply, socket}
   end
 
-  def handle_event("show_data_sources_modal", _, socket) do
-    {:noreply, assign(socket, :data_sources_modal_visible?, true)}
+  def handle_event("change_signal_visibility", params, %{assigns: assigns} = socket) do
+    new_signals =
+      for signal <- assigns.signals do
+        %{signal | visible?: params[signal.channel.id] == "true"}
+      end
+
+    # Set track visibility on map if a :position signal's visibility was changed
+    socket =
+      assigns.signals
+      |> Enum.zip(new_signals)
+      |> Enum.reduce(socket, fn {old_signal, new_signal}, socket ->
+        if new_signal.channel.type == :position and old_signal.visible? != new_signal.visible? do
+          push_event(socket, "set_boat_visible", %{
+            boat_id: new_signal.channel.boat.id,
+            visible: new_signal.visible?
+          })
+        else
+          socket
+        end
+      end)
+
+    {:noreply, assign(socket, :signals, new_signals)}
   end
 
-  def handle_event("data_sources_modal_closed", _, socket) do
-    {:noreply, assign(socket, :data_sources_modal_visible?, false)}
+  def handle_event("show_signals_modal", _, socket) do
+    {:noreply, assign(socket, :signals_modal_visible?, true)}
   end
 
-  def handle_info({"track_coordinates", coordinates}, socket) do
-    {:noreply, push_event(socket, "track_coordinates", %{coordinates: coordinates})}
+  def handle_event("hide_signals_modal", _, socket) do
+    {:noreply, assign(socket, :signals_modal_visible?, false)}
   end
 
-  def handle_info({"marker_position", position}, socket) do
-    {:noreply, push_event(socket, "marker_position", %{position: position})}
+  # PubSub message from NauticNet.Ingest
+  # def handle_info({:new_samples, samples}, %{assigns: %{live?: true} = assigns} = socket) do
+  #   # Only care about samples that are "today"
+  #   samples = Enum.filter(samples, fn s -> DateTime.to_date(s.time) == assigns.local_date end)
+
+  #   # Update the latest_sample for applicable signals
+  #   signals =
+  #     for signal <- assigns.signals do
+  #       if new_sample = Enum.find(samples, &Sample.in_channel?(&1, signal.channel)) do
+  #         %{signal | latest_sample: new_sample}
+  #       else
+  #         signal
+  #       end
+  #     end
+
+  #   # for %{type: :position} = position_sample <- samples do
+  #   # TODO: Push coordinate samples to JS
+  #   # end
+
+  #   {:noreply, assign(socket, :signals, signals)}
+  # end
+
+  # def handle_info({:new_samples, _samples}, %{assigns: %{live?: false}} = socket) do
+  #   # TODO: Something??
+
+  #   {:noreply, socket}
+  # end
+
+  def handle_info({:new_samples, _}, socket) do
+    {:noreply, socket}
   end
 
-  def handle_info({event, latitude, longitude}, socket) do
-    {:noreply, push_event(socket, event, %{latitude: latitude, longitude: longitude})}
+  # Set to "now" if Live is enabled
+  def handle_info(:live_tick, %{assigns: %{live?: true}} = socket) do
+    Process.send_after(self(), :live_tick, :timer.seconds(1))
+
+    {:noreply, set_live_position(socket)}
   end
 
-  defp set_throttle_and_position(event_data, assigns) do
-    case event_data["position"] do
-      nil ->
-        {false, assigns.current_position}
+  # Ignore if Live mode has been disabled
+  def handle_info(:live_tick, %{assigns: %{live?: false}} = socket) do
+    {:noreply, socket}
+  end
 
-      pos ->
-        {true, String.to_integer(pos)}
+  def handle_info(:start_coordinate_tasks, socket) do
+    live_view_pid = self()
+
+    socket.assigns.signals
+    |> Enum.filter(&(&1.channel.type == :position))
+    |> Enum.each(fn signal ->
+      Task.start(fn ->
+        fetch_coordinates_task(signal, socket.assigns.local_date, live_view_pid)
+      end)
+    end)
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:push_boat_view, boat_view, center_coord}, socket) do
+    socket =
+      socket
+      |> push_event("add_boat_view", %{"boat_view" => boat_view})
+      # Needed to set time bounds for polyline
+      |> push_map_state()
+      |> maybe_recenter_map(center_coord)
+
+    {:noreply, socket}
+  end
+
+  defp fetch_coordinates_task(signal, local_date, live_view_pid) do
+    coordinates =
+      Playback.list_coordinates(
+        signal.channel,
+        local_date
+      )
+
+    boat_view = %{
+      "boat_id" => signal.channel.boat.id,
+      "track_color" => signal.color,
+      "coordinates" =>
+        Enum.map(coordinates, fn coord ->
+          %{
+            "time" => DateTime.to_unix(coord.time),
+            "lat" => coord.latitude,
+            "lng" => coord.longitude,
+            "heading_rad" => coord.true_heading
+          }
+        end)
+    }
+
+    center_coord =
+      if coordinates == [] do
+        nil
+      else
+        {min_lat, max_lat} = coordinates |> Enum.map(& &1.latitude) |> Enum.min_max()
+        {min_lon, max_lon} = coordinates |> Enum.map(& &1.longitude) |> Enum.min_max()
+        {(min_lat + max_lat) / 2, (min_lon + max_lon) / 2}
+      end
+
+    send(live_view_pid, {:push_boat_view, boat_view, center_coord})
+
+    :ok
+  end
+
+  defp maybe_recenter_map(socket, center_coord) do
+    if socket.assigns.needs_centering? and center_coord != nil do
+      socket
+      |> set_map_view(center_coord)
+      |> assign(:needs_centering?, false)
+    else
+      socket
     end
   end
 
-  defp print_coordinates({utc_datetime, latitude, longitude}, timezone) do
-    local_datetime =
-      utc_datetime
-      |> Timex.to_datetime(timezone)
-      |> Timex.format!("{h12}:{m}:{s} {am} {Zabbr}")
+  defp push_boat_coordinates(socket) do
+    if connected?(socket) do
+      send(self(), :start_coordinate_tasks)
 
-    "#{local_datetime} [#{Float.round(latitude, 4)}, #{Float.round(longitude, 4)}]"
+      socket
+      |> assign(:needs_centering?, true)
+      |> push_event("clear_boat_views", %{})
+    else
+      socket
+    end
   end
 
-  defp assign_dates(socket) do
-    [first_date | _] = dates = Playback.list_all_dates(socket.assigns.timezone)
-
-    socket
-    |> assign(:dates, dates)
-    |> select_date(first_date)
+  defp push_map_state(%{assigns: assigns} = socket) do
+    push_event(socket, "map_state", %{
+      first_sample_at: DateTime.to_unix(assigns.first_sample_at),
+      last_sample_at: DateTime.to_unix(assigns.last_sample_at),
+      range_start_at: DateTime.to_unix(assigns.range_start_at),
+      range_end_at: DateTime.to_unix(assigns.range_end_at),
+      inspect_at: DateTime.to_unix(assigns.inspect_at)
+    })
   end
 
-  # Set the date, boats, and data sources
-  defp select_date(socket, date) do
-    [first_boat | _] = boats = Playback.list_active_boats(date, socket.assigns.timezone)
+  defp set_position(%{assigns: assigns} = socket, params) do
+    # epoch for fixed dataset is from 59898.0 to 59904.0
+    # 10751 is the max value for position
 
-    socket
-    |> assign(:selected_date, date)
-    |> assign(:boats, boats)
-    |> select_boat(first_boat)
-  end
-
-  defp select_boat(socket, boat) do
-    socket
-    |> assign(:selected_boat, boat)
-    |> assign(
-      :data_sources,
-      Playback.list_data_sources(
-        boat,
-        socket.assigns.selected_date,
-        socket.assigns.timezone
-      )
-    )
-    |> assign_selected_boat_coordinates()
-  end
-
-  # Update each DataSource's :selected_sensor based on form params
-  defp select_sensors(socket, params) do
-    data_sources =
-      for data_source <- socket.assigns.data_sources do
-        next_sensor = Enum.find(data_source.sensors, &(&1.id == params[data_source.id]))
-        %{data_source | selected_sensor: next_sensor}
+    new_inspect_at =
+      if pos = params["position"] do
+        parse_unix_datetime(pos, assigns.local_date.timezone)
+      else
+        assigns.inspect_at
       end
 
-    assign(socket, :data_sources, data_sources)
+    new_signals = Playback.fill_latest_samples(assigns.signals, new_inspect_at)
+
+    socket
+    |> assign(:signals, new_signals)
+    |> assign(:inspect_at, new_inspect_at)
+    |> push_map_state()
   end
 
-  defp sensor_count(data_sources) do
-    data_sources
-    |> Enum.flat_map(fn data_source ->
-      Enum.map(data_source.sensors, & &1.id)
-    end)
-    |> Enum.uniq()
-    |> Enum.count()
+  defp set_live_position(socket) do
+    end_at = DateTime.utc_now()
+    start_at = DateTime.add(end_at, -3600, :second)
+
+    new_signals = Playback.fill_latest_samples(socket.assigns.signals, end_at)
+
+    socket
+    |> assign(:signals, new_signals)
+    |> assign(:inspect_at, end_at)
+    # |> assign(:first_sample_at, start_at)
+    |> assign(:last_sample_at, end_at)
+    |> assign(:range_start_at, start_at)
+    |> assign(:range_end_at, end_at)
+    |> push_map_state()
+    |> push_live_coordinates()
+
+    # |> push_event("configure", %{
+    #   id: "range-slider",
+    #   min: DateTime.to_unix(start_at),
+    #   max: DateTime.to_unix(end_at)
+    # })
+  end
+
+  defp push_live_coordinates(socket) do
+    # TODO: Push new coordinates
+    socket
+  end
+
+  # defp __update_water__(%{assigns: assigns} = socket, params) do
+  #   throttle? = !!params["position"]
+
+  #   zoom_level = params["zoom_level"] || assigns.zoom_level
+  #   viewport_change? = params["viewport_change"] == true
+
+  #   t0 = assigns.first_sample_at
+  #   time = assigns.inspect_at
+
+  #   now = now_ms()
+  #   diff_ms = now - assigns.last_water_event_sent_at
+
+  #   milliseconds_diff = DateTime.diff(time, t0, :millisecond)
+  #   time = NauticNet.NetCDF.epoch() + milliseconds_diff / (24 * :timer.hours(1))
+
+  #   index = NauticNet.NetCDF.get_geodata_time_index(time)
+
+  #   {last_water_event_index, last_water_event_sent_at, water_data} =
+  #     if (index != assigns.last_water_event_index or viewport_change?) and
+  #          ((throttle? and diff_ms > 33) or not throttle?) and assigns.water_visible? do
+  #       %{
+  #         "min_lat" => min_lat,
+  #         "min_lon" => min_lon,
+  #         "max_lat" => max_lat,
+  #         "max_lon" => max_lon
+  #       } = assigns.bounding_box
+
+  #       data =
+  #         index
+  #         |> NauticNet.NetCDF.get_geodata(min_lat, max_lat, min_lon, max_lon, zoom_level)
+  #         |> Base.encode64()
+
+  #       {index, now, data}
+  #     else
+  #       {assigns.last_water_event_index, assigns.last_water_event_sent_at, nil}
+  #     end
+
+  #   socket
+  #   |> assign(:zoom_level, zoom_level)
+  #   |> assign(:last_water_event_sent_at, last_water_event_sent_at)
+  #   |> assign(:last_water_event_index, last_water_event_index)
+  #   |> then(fn s ->
+  #     if water_data do
+  #       push_event(s, "add_water_markers", %{water_data: water_data})
+  #     else
+  #       s
+  #     end
+  #   end)
+  # end
+
+  # Set the date, boats, and data sources
+  defp select_date(socket, date, timezone) do
+    local_date = %LocalDate{date: date, timezone: timezone}
+
+    signals =
+      local_date
+      |> Playback.list_channels_on()
+      |> Enum.map(fn %Channel{boat: boat} = channel ->
+        %Signal{channel: channel, color: boat_color(boat.id)}
+      end)
+
+    # Set up the range for the main slider
+    {first_sample_at, last_sample_at} = Playback.get_sample_range_on(local_date)
+
+    first_position_signal = Enum.find(signals, &(&1.channel.type == :position))
+
+    socket
+    |> assign(:local_date, local_date)
+    |> unsubscribe_from_boats()
+    |> assign(:signals, signals)
+    |> subscribe_to_boats()
+    |> assign(:first_sample_at, first_sample_at)
+    |> assign(:last_sample_at, last_sample_at)
+    |> assign(:range_start_at, first_sample_at)
+    |> assign(:range_end_at, last_sample_at)
+    |> constrain_inspect_at()
+    |> push_event("configure", %{
+      id: "range-slider",
+      min: DateTime.to_unix(first_sample_at),
+      max: DateTime.to_unix(last_sample_at)
+    })
+    |> push_boat_coordinates()
+    |> push_map_state()
+    |> select_boat(first_position_signal)
+  end
+
+  # Ensure inspect_at lies within the range
+  defp constrain_inspect_at(%{assigns: assigns} = socket) do
+    inspect_at = assigns.range_end_at
+    #   cond do
+    #     DateTime.compare(assigns.inspect_at, assigns.range_start_at) == :lt ->
+    #       assigns.range_start_at
+
+    #     DateTime.compare(assigns.inspect_at, assigns.range_end_at) == :gt ->
+    #       assigns.range_end_at
+
+    #     :else ->
+    #       assigns.inspect_at
+    #   end
+
+    assign(socket, :inspect_at, inspect_at)
+  end
+
+  defp select_boat(socket, nil) do
+    socket
+    |> assign(:selected_boat, nil)
+    |> assign(:signals_modal_visible?, false)
+  end
+
+  defp select_boat(socket, %Signal{channel: %Channel{boat: boat}}), do: select_boat(socket, boat)
+  defp select_boat(socket, %Channel{boat: boat}), do: select_boat(socket, boat)
+  defp select_boat(socket, %Boat{} = boat), do: assign(socket, :selected_boat, boat)
+
+  defp select_boat(socket, boat_id) when is_binary(boat_id) do
+    signal = Enum.find(socket.assigns.signals, &(&1.channel.boat.id == boat_id))
+
+    select_boat(socket, signal.channel.boat)
   end
 
   # <select> option helpers
 
-  defp boat_options(boats) do
-    Enum.map(boats, &{&1.name, &1.id})
-  end
-
-  defp date_options(dates) do
-    Enum.map(dates, &Date.to_iso8601/1)
-  end
-
-  defp sensor_options([]), do: [{"Not Available", ""}]
-
-  defp sensor_options(sensors) do
-    [{"Off", ""}] ++ Enum.map(sensors, &{&1.name, &1.id})
-  end
-
-  defp current_datetime({utc_datetime, _lat, _lon}), do: utc_datetime
-
-  defp get_latest_sample(data_sources, data_source_id) do
-    case Enum.find(data_sources, &(&1.id == data_source_id)) do
-      %DataSource{latest_sample: %Sample{} = sample} -> sample
-      _ -> nil
-    end
+  defp boat_options(signals) do
+    signals
+    |> Enum.map(&{&1.channel.boat.name, &1.channel.boat.id})
+    |> Enum.uniq()
+    |> Enum.sort()
   end
 
   attr(:label, :string, required: true)
-  attr(:sample, :map, required: true)
-  attr(:field, :atom, required: true, values: [:angle_rad, :depth_m, :speed_m_s])
-  attr(:unit, :atom, required: true, values: [:deg, :kn, :ft])
+  attr(:signal, Signal, required: true)
+  attr(:field, :atom, required: true, values: [:angle, :magnitude])
+  attr(:unit, :atom, required: true, values: [:deg, :deg_magnetic, :deg_true, :kn, :ft])
+  attr(:precision, :integer, required: false)
+  attr(:show_sensor, :boolean, required: false, default: true)
 
-  defp sample_view(assigns) do
+  defp signal_view(assigns) do
+    assigns =
+      assign_new(assigns, :precision, fn ->
+        if assigns.unit in [:deg, :deg_magnetic, :deg_true], do: 0, else: 1
+      end)
+
+    channel_unit =
+      if assigns.unit in [:deg, :deg_magnetic, :deg_true],
+        do: :rad,
+        else: assigns.signal.channel.unit
+
     display_value =
-      if assigns.sample do
-        case assigns.field do
-          :angle_rad ->
-            assigns.sample.angle
-            |> convert(:rad, assigns.unit)
-            |> :erlang.float_to_binary(decimals: 0)
-
-          :depth_m ->
-            assigns.sample.magnitude
-            |> convert(:m, assigns.unit)
-            |> :erlang.float_to_binary(decimals: 1)
-
-          :speed_m_s ->
-            assigns.sample.magnitude
-            |> convert(:m_s, assigns.unit)
-            |> :erlang.float_to_binary(decimals: 1)
-        end
+      if assigns.signal.latest_sample do
+        assigns.signal.latest_sample
+        |> Map.fetch!(assigns.field)
+        |> convert(channel_unit, assigns.unit)
+        |> :erlang.float_to_binary(decimals: assigns.precision)
       else
         "--"
       end
@@ -356,26 +543,146 @@ defmodule NauticNetWeb.MapLive do
     ~H"""
     <div class="border rounded-lg p-2 flex flex-col">
       <div class="flex justify-between font-semibold text-sm">
-        <div><%= @label %></div>
+        <div class="font-bold"><%= @label %></div>
         <div><%= unit(@unit) %></div>
       </div>
-      <div class="text-center text-4xl flex-grow flex items-center justify-center">
+      <div class="text-center text-4xl flex-grow flex items-center justify-center py-2">
         <%= @display_value %>
       </div>
+      <%= if @show_sensor do %>
+        <div class="text-center text-sm text-gray-400 font-medium">
+          <%= @signal.channel.sensor.name %>
+        </div>
+      <% end %>
     </div>
     """
   end
 
+  defp unit(:percent), do: "%"
+  defp unit(:dbm), do: "dBm"
   defp unit(:deg), do: "°"
+  defp unit(:deg_magnetic), do: "°M"
+  defp unit(:deg_true), do: "°T"
   defp unit(:kn), do: "kn"
   defp unit(:ft), do: "ft"
 
-  defp convert(value, :m_s, :m_s), do: value * 1.0
+  defp convert(value, same, same), do: value * 1.0
   defp convert(value, :m_s, :kn), do: value * 1.94384
 
-  defp convert(value, :rad, :rad), do: value * 1.0
-  defp convert(value, :rad, :deg), do: value * 180 / :math.pi()
+  defp convert(value, :rad, deg) when deg in [:deg, :deg_magnetic, :deg_true],
+    do: value * 180 / :math.pi()
 
-  defp convert(value, :m, :m), do: value * 1.0
   defp convert(value, :m, :ft), do: value * 3.28084
+
+  defp now_ms, do: System.monotonic_time(:millisecond)
+
+  defp set_map_view(socket, {latitude, longitude}) do
+    push_event(socket, "map_view", %{latitude: latitude, longitude: longitude})
+  end
+
+  defp parse_unix_datetime(param, local_timezone) when is_binary(param) do
+    param
+    |> Float.parse()
+    |> elem(0)
+    |> trunc()
+    |> parse_unix_datetime(local_timezone)
+  end
+
+  defp parse_unix_datetime(param, local_timezone) when is_integer(param) do
+    param
+    |> DateTime.from_unix!()
+    |> Timex.to_datetime(local_timezone)
+  end
+
+  defp boat_color(boat_id) do
+    red =
+      boat_id
+      |> :erlang.phash2(256)
+      |> Integer.to_string(16)
+      |> String.pad_leading(2, "0")
+
+    green =
+      boat_id
+      |> String.upcase()
+      |> :erlang.phash2(256)
+      |> Integer.to_string(16)
+      |> String.pad_leading(2, "0")
+
+    blue =
+      boat_id
+      |> String.reverse()
+      |> :erlang.phash2(256)
+      |> Integer.to_string(16)
+      |> String.pad_leading(2, "0")
+
+    "##{red}#{green}#{blue}"
+  end
+
+  defp subscribe_to_boats(socket) do
+    if connected?(socket) do
+      for boat <- boats(socket.assigns.signals) do
+        NauticNet.PubSub.subscribe_to_boat(boat)
+      end
+    end
+
+    socket
+  end
+
+  defp unsubscribe_from_boats(socket) do
+    if connected?(socket) do
+      for boat <- boats(socket.assigns.signals) do
+        NauticNet.PubSub.unsubscribe_from_boat(boat)
+      end
+    end
+
+    socket
+  end
+
+  defp boats(signals) do
+    signals |> Enum.map(& &1.channel.boat) |> Enum.uniq_by(& &1.id) |> Enum.sort_by(& &1.name)
+  end
+
+  defp position_signals(signals) do
+    Enum.filter(signals, &(&1.channel.type == :position))
+  end
+
+  defp boat_count(signals) do
+    signals |> Enum.map(& &1.channel.boat.id) |> Enum.uniq() |> length()
+  end
+
+  defp boat_signal_count(boat, signals) do
+    boat |> boat_signals(signals) |> length()
+  end
+
+  defp visible_boat_signal_count(boat, signals) do
+    boat |> visible_boat_signals(signals) |> length()
+  end
+
+  defp boat_signals(nil, _signals), do: []
+
+  defp boat_signals(boat, signals) do
+    signals
+    |> Enum.filter(&(&1.channel.boat.id == boat.id))
+    |> Enum.sort_by(& &1.channel.name)
+  end
+
+  defp visible_boat_signals(boat, signals) do
+    boat |> boat_signals(signals) |> Enum.filter(& &1.visible?)
+  end
+
+  defp visible_boat_signals(boat, signals, type) do
+    boat |> boat_signals(signals) |> Enum.filter(&(&1.visible? and &1.channel.type == type))
+  end
+
+  defp boat_sensor_count(boat, signals) do
+    boat
+    |> boat_signals(signals)
+    |> Enum.map(& &1.channel.sensor.id)
+    |> Enum.uniq()
+    |> length()
+  end
+
+  defp format_time(datetime) do
+    Timex.format!(datetime, "{h12}:{m}:{s}{am} {Zabbr}")
+  end
 end

@@ -14,18 +14,19 @@ defmodule NauticNet.Application do
       NauticNet.Repo,
       # Start the PubSub system
       {Phoenix.PubSub, name: NauticNet.PubSub},
-      {NauticNet.NetCDF,
-       %{
-         dataset_filename: Path.join(:code.priv_dir(:nautic_net), "dataset_20221221.nc"),
-         start_date: ~D[2022-12-21],
-         end_date: ~D[2022-12-22]
-       }},
+      # {NauticNet.NetCDF,
+      #  %{
+      #    dataset_filename: Path.join(:code.priv_dir(:nautic_net), "dataset_20221221.nc"),
+      #    start_date: ~D[2022-12-21],
+      #    end_date: ~D[2022-12-22]
+      #  }},
       # Start Finch
       {Finch, name: NauticNet.Finch},
       # Start the Endpoint (http/https)
       NauticNetWeb.Endpoint,
       # Start the protobuf UDP listener
-      {NauticNet.Ingest.UDPServer, port: Application.fetch_env!(:nautic_net, :udp_port)}
+      {NauticNet.Ingest.UDPServer, port: Application.fetch_env!(:nautic_net, :udp_port)},
+      {NauticNet.MaterializedViewRefresher, view: "active_channels", interval: :timer.seconds(60)}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

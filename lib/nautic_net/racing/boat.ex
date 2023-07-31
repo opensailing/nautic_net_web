@@ -11,6 +11,8 @@ defmodule NauticNet.Racing.Boat do
 
     field :name, :string
     field :identifier, :string
+    field :alive_at, :utc_datetime
+    field :serial, :string
 
     timestamps()
   end
@@ -18,8 +20,8 @@ defmodule NauticNet.Racing.Boat do
   @doc false
   def changeset(boat, attrs) do
     boat
-    |> cast(attrs, [:name, :identifier])
-    |> validate_required([:name, :identifier])
+    |> cast(attrs, [:name, :identifier, :serial, :alive_at])
+    |> validate_required([:name, :identifier, :serial])
     |> unique_constraint(:identifier)
   end
 end

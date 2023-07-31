@@ -17,9 +17,14 @@ defmodule NauticNet.Ingest.UDPServer do
   def init(opts) do
     port = opts[:port] || raise "the :port option is required"
 
-    {:ok, socket} = :gen_udp.open(port, mode: :binary, active: true)
+    udp_opts = udp_opts()
+    {:ok, socket} = :gen_udp.open(port, udp_opts())
 
-    Logger.debug("Opened UDP port #{port}")
+    if ip = udp_opts[:ip] do
+      Logger.info("Bound to UDP address #{:inet.ntoa(ip)}:#{port}")
+    else
+      Logger.info("Bound to UDP port #{port}")
+    end
 
     {:ok,
      %{
@@ -27,8 +32,27 @@ defmodule NauticNet.Ingest.UDPServer do
      }}
   end
 
+  defp udp_opts do
+    base_opts = [mode: :binary, active: true]
+
+    #
+    # This is necessary to bind to the "fly-global-services" address on Fly.io
+    # https://fly.io/docs/app-guides/udp-and-tcp/#the-fly-global-services-address
+    #
+    with {:ok, hostname} <- System.fetch_env("UDP_HOSTNAME"),
+         hostname = to_charlist(hostname),
+         {:ok, ip} <- :inet.getaddr(hostname, :inet) do
+      base_opts ++ [ip: ip]
+    else
+      _ ->
+        base_opts
+    end
+  end
+
   @impl true
-  def handle_info({:udp, _socket, _address, _port, data}, state) do
+  def handle_info({:udp, _socket, address, _port, data}, state) do
+    Logger.info("[UDPServer] [#{:inet.ntoa(address)}] - Received #{byte_size(data)} bytes")
+
     # TODO: Kick this out to another process? Flow? GenStage? Something??
     case Ingest.insert_samples(data) do
       :ok ->

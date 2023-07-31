@@ -5,9 +5,6 @@
 ```sh
 asdf install
 
-# This is probably not needed anymore, but still needs validation
-# brew install netcdf-cxx
-
 cd assets && yarn install && cd ..
 
 mix deps.get
@@ -19,6 +16,37 @@ mix assets.deploy
 
 # And run with
 mix phx.server
+```
+
+## DB Backup and Restore
+
+### Backup
+
+```sh
+# Terminal A: set up a Fly tunnel to local port 5434
+fly proxy 5434:5432 -a nautic-net-web-db-dev
+
+# Terminal B: start Timescale on port 5433
+docker-compose up
+
+# Terminal C:
+FLY_DB_PASSWORD='get-this-from-1password'
+FLY_DB_PROXY_URL="postgresql://postgres:$FLY_DB_PASSWORD@localhost:5434/nautic_net_web_dev"
+PATH="$PATH:/Applications/Postgres.app/Contents/Versions/15/bin/"
+pg_dump --no-owner $FLY_DB_PROXY_URL > pg.dump
+```
+
+### Restore
+
+```sh
+# Terminal A: start Timescale on port 5433
+docker-compose up
+
+# Terminal B:
+PATH="$PATH:/Applications/Postgres.app/Contents/Versions/15/bin/"
+mix ecto.drop
+mix ecto.create
+psql postgres://postgres:postgres@localhost:5433/nautic_net_web_dev < pg.dump
 ```
 
 ## Debugging the Docker build
@@ -78,6 +106,9 @@ fly secrets set \
 
 # Cross your fingers and toes...
 fly deploy
+
+# Allocate a static IPv4 address for UDP to work
+fly ips allocate-v4
 ```
 
 Answers for the prompts from `fly launch`:

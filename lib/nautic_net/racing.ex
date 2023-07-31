@@ -2,9 +2,14 @@ defmodule NauticNet.Racing do
   @moduledoc """
   Core model CRUD.
   """
+  alias NauticNet.Data.Sample
+  alias NauticNet.Data.Sensor
   alias NauticNet.Racing.Boat
   alias NauticNet.Racing.Race
   alias NauticNet.Repo
+
+  import Ecto.Changeset
+  import Ecto.Query
 
   ### Races
 
@@ -15,6 +20,14 @@ defmodule NauticNet.Racing do
   end
 
   ### Boats
+
+  defmodule BoatStats do
+    @moduledoc """
+    Represents a row of data for presentation on /boats page.
+    """
+    @derive {Phoenix.Param, key: :boat_id}
+    defstruct [:boat_id, :boat, :sample_count, :sensor_count, :recent_sample_count]
+  end
 
   def get_or_create_boat_by_identifier(identifier, preloads \\ []) do
     case Repo.get_by(Boat, identifier: identifier) do
@@ -32,5 +45,57 @@ defmodule NauticNet.Racing do
     %Boat{}
     |> Boat.changeset(params)
     |> Repo.insert()
+  end
+
+  def flag_boat_as_alive(boat) do
+    boat
+    |> change(alive_at: DateTime.truncate(DateTime.utc_now(), :second))
+    |> Repo.update!()
+  end
+
+  def list_boats_stats do
+    boats =
+      from(b in Boat,
+        order_by: [b.name, b.identifier, b.id]
+      )
+      |> Repo.all()
+
+    # Total number of samples (per boat)
+    sample_counts =
+      from(s in Sample,
+        select: {s.boat_id, count(s.time)},
+        group_by: s.boat_id
+      )
+      |> Repo.all()
+      |> Map.new()
+
+    # Number of samples within the past 60 seconds (per boat)
+    recent_sample_counts =
+      from(s in Sample,
+        select: {s.boat_id, count(s.time)},
+        group_by: s.boat_id,
+        where: s.time > ^DateTime.add(DateTime.utc_now(), -60)
+      )
+      |> Repo.all()
+      |> Map.new()
+
+    # Total number of sensors (per boat)
+    sensor_counts =
+      from(s in Sensor,
+        select: {s.boat_id, count(s.id)},
+        group_by: s.boat_id
+      )
+      |> Repo.all()
+      |> Map.new()
+
+    for boat <- boats do
+      %BoatStats{
+        boat_id: boat.id,
+        boat: boat,
+        sample_count: Map.get(sample_counts, boat.id, 0),
+        sensor_count: Map.get(sensor_counts, boat.id, 0),
+        recent_sample_count: Map.get(recent_sample_counts, boat.id, 0)
+      }
+    end
   end
 end

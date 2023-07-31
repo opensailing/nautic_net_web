@@ -12,6 +12,8 @@ defmodule NauticNet.Data.Sensor do
     field :hardware_identifier, :string
     field :name, :string
 
+    field :latest_sample, :map, virtual: true
+
     timestamps()
   end
 
@@ -20,5 +22,12 @@ defmodule NauticNet.Data.Sensor do
     sensor
     |> cast(params, [:name, :hardware_identifier])
     |> validate_required([:name, :hardware_identifier])
+  end
+
+  @doc false
+  def update_changeset(sensor, params) do
+    sensor
+    |> cast(params, [:name])
+    |> validate_required([:name])
   end
 end

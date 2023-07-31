@@ -3,6 +3,7 @@ defmodule NauticNet.Data.Sample do
   use NauticNet.Schema
 
   alias NauticNet.Data.Sensor
+  alias NauticNet.Playback.Channel
   alias NauticNet.Protobuf
   alias NauticNet.Racing.Boat
 
@@ -55,6 +56,14 @@ defmodule NauticNet.Data.Sample do
          angle: Protobuf.Convert.decode_unit(sample.angle_mrad, :mrad, :rad)
        }
      ]}
+  end
+
+  # Throw out obviously-invalid position samples
+  def attrs_from_protobuf_sample(
+        {_field, %Protobuf.PositionSample{latitude: latitude, longitude: longitude}}
+      )
+      when latitude < -90 or latitude > 90 or longitude < -180 or longitude > 180 do
+    :error
   end
 
   def attrs_from_protobuf_sample({_field, %Protobuf.PositionSample{} = sample}) do
@@ -143,7 +152,10 @@ defmodule NauticNet.Data.Sample do
        },
        %{
          type: :heel,
-         angle: Protobuf.Convert.decode_unit(rover_data.heel - 90, :ddeg, :rad)
+         # Heel is 0 to 1800 (0.0° to 180.0°) so we subtract 900 (90.0°) to normalize it so that
+         # 0° is straight-up towards the sky, negative heel is leaning towards port, and positive heel
+         # is leaning towards starboard
+         angle: Protobuf.Convert.decode_unit(rover_data.heel - 900, :ddeg, :rad)
        },
        %{
          type: :velocity_over_ground,
@@ -162,4 +174,15 @@ defmodule NauticNet.Data.Sample do
   def attrs_from_protobuf_sample(_), do: :error
 
   def types, do: @types
+
+  def get_type_info(type), do: Enum.find(@types, &(&1.type == type))
+
+  @doc """
+  Returns true if a Sample is aplicable to a Channel.
+  """
+  def in_channel?(%__MODULE__{} = sample, %Channel{} = channel) do
+    sample.boat_id == channel.boat.id and
+      sample.sensor_id == channel.sensor.id and
+      sample.type == channel.type
+  end
 end

@@ -1,55 +1,98 @@
-<div id="map" phx-hook="Leaflet" phx-update="ignore" />
+<div id="map" phx-hook="LeafletHook" phx-update="ignore" />
 
 <div class="flex items-center justify-between my-4">
   <div class="flex items-center gap-4">
-    <form phx-change="select_date" class="w-32">
+    <form phx-change="select_date" class="w-36">
       <.input
-        type="select"
+        type="date"
         id="date"
         name="date"
-        value={@selected_date}
-        options={date_options(@dates)}
+        value={@local_date.date}
         errors={[]}
-        disabled={@is_live}
+        disabled={@live?}
       />
     </form>
 
-    <form phx-change="is_live_changed">
-      <.input type="checkbox" id="is_live" name="is_live" checked={@is_live} label="Live" />
+    <form phx-change="live_changed">
+      <.input type="checkbox" id="live" name="live" checked={@live?} label="Live" />
+    </form>
+    <form phx-change="water_visible_changed">
+      <.input
+        type="checkbox"
+        id="water_visible"
+        name="water_visible"
+        checked={@water_visible?}
+        label="Water Currents"
+      />
     </form>
   </div>
 
   <div>
-    <%= length(@boats) %> <%= if length(@boats) == 1, do: "boat", else: "boats" %>
+    <%= boat_count(@signals) %> <%= if boat_count(@signals) == 1, do: "boat", else: "boats" %>
   </div>
 </div>
 
 <div class="my-6 px-4">
-  <div id="range" phx-hook="RangeSlider" phx-update="ignore" data-max={@max_position} />
+  <div
+    id="range-slider"
+    phx-hook="RangeSliderHook"
+    phx-update="ignore"
+    data-min={DateTime.to_unix(@first_sample_at)}
+    data-max={DateTime.to_unix(@last_sample_at)}
+  />
+  <div class="flex justify-between mt-2">
+    <div>From <%= format_time(@range_start_at) %></div>
+    <div>To <%= format_time(@range_end_at) %></div>
+  </div>
 </div>
 
 <form
   phx-change={Phoenix.LiveView.JS.dispatch("handleSetPosition")}
   phx-click={Phoenix.LiveView.JS.dispatch("handleSetPosition")}
   phx-throttle="500"
-  class="my-4"
+  class="mt-4"
 >
-  <label for="position"><%= print_coordinates(@current_coordinates, @timezone) %></label>
   <input
     style="width:100%"
     type="range"
     id="position"
     name="position"
-    value={@current_position}
-    min={@current_min_position}
-    max={@current_max_position}
-    disabled={@is_live}
+    value={DateTime.to_unix(@inspect_at)}
+    min={DateTime.to_unix(@range_start_at)}
+    max={DateTime.to_unix(@range_end_at)}
+    disabled={@live?}
   />
 </form>
 
+<div>Inspect <%= format_time(@inspect_at) %></div>
+
+<table>
+  <%= for %{channel: %{boat: boat}} = signal <- position_signals(@signals) do %>
+    <tr>
+      <td>
+        <input
+          id={"boat-toggle-#{boat.id}"}
+          type="checkbox"
+          checked={signal.visible?}
+          phx-click="set_boat_visible"
+          phx-value-boat-id={boat.id}
+        />
+      </td>
+      <td>
+        <div class="w-3 h-3" style={"background-color: #{signal.color}"} />
+      </td>
+      <td>
+        <label for={"boat-toggle-#{boat.id}"} class="cursor-pointer">
+          <%= boat.name || boat.id %>
+        </label>
+      </td>
+    </tr>
+  <% end %>
+</table>
+
 <div class="my-4">
-  <.button phx-click="toggle_track"><%= if @show_track, do: "Hide", else: "Show" %></.button>
-  <.button :if={@show_track} phx-click="clear">Clear</.button>
+  <.button phx-click="toggle_track"><%= if @tracks_visible?, do: "Hide", else: "Show" %></.button>
+  <.button :if={@tracks_visible?} phx-click="clear">Clear</.button>
   <.button phx-click={
     Phoenix.LiveView.JS.dispatch("animateTime", detail: %{play: true}, to: "#map")
   }>
@@ -62,90 +105,59 @@
   </.button>
 </div>
 
-<div class="my-4 border rounded-lg px-4 py-2 grid grid-cols-3 gap-4">
-  <div>
-    <h2 class="text-xl font-semibold mb-2">Inspector</h2>
-
-    <form phx-change="select_boat" class="mb-4">
+<div class="my-4 border rounded-lg px-4 py-2">
+  <div class="flex items-center gap-4 mb-2">
+    <h2 class="text-xl font-semibold">Inspector</h2>
+    <form phx-change="select_boat">
       <.input
         type="select"
         id="boat_id"
         name="boat_id"
-        value={@selected_boat.id}
-        options={boat_options(@boats)}
+        value={@selected_boat && @selected_boat.id}
+        options={boat_options(@signals)}
         errors={[]}
       />
     </form>
-
-    <.button phx-click="show_data_sources_modal">
-      <%= sensor_count(@data_sources) %> sensors
+    <.button phx-click="show_signals_modal">
+      <%= if visible_boat_signal_count(@selected_boat, @signals) != boat_signal_count(@selected_boat, @signals) do %>
+        <%= visible_boat_signal_count(@selected_boat, @signals) %> of
+      <% end %>
+      <%= boat_signal_count(
+        @selected_boat,
+        @signals
+      ) %> signals
+      <%= if boat_sensor_count(@selected_boat, @signals) > 1 do %>
+        from <%= boat_sensor_count(@selected_boat, @signals) %> sensors
+      <% end %>
     </.button>
-
-    <%= if @data_sources_modal_visible? do %>
-      <.modal id="data_sources_modal" show={true} on_cancel={JS.push("data_sources_modal_closed")}>
-        <:title>Select Sensors</:title>
-        <form phx-change="select_data_sources">
-          <%= for data_source <- @data_sources do %>
-            <fieldset class="my-3">
-              <label for={data_source.id} class="font-semibold mb-1">
-                <%= data_source.name %>
-              </label>
-              <.input
-                type="select"
-                id={"data_source_" <> data_source.id}
-                name={data_source.id}
-                value={if data_source.selected_sensor, do: data_source.selected_sensor.id}
-                options={sensor_options(data_source.sensors)}
-                errors={[]}
-                disabled={data_source.sensors == []}
-              />
-            </fieldset>
-          <% end %>
-        </form>
-      </.modal>
+  </div>
+  <div class="grid grid-cols-4 gap-4">
+    <%= for signal_view <- @signal_views, signal <- visible_boat_signals(@selected_boat, @signals, signal_view.type) do %>
+      <.signal_view
+        signal={signal}
+        show_sensor={boat_sensor_count(@selected_boat, @signals) > 1}
+        {signal_view}
+      />
     <% end %>
   </div>
-
-  <div class="grid grid-cols-2 gap-4">
-    <.sample_view
-      label="True Heading"
-      sample={get_latest_sample(@data_sources, "true_heading")}
-      field={:angle_rad}
-      unit={:deg}
-    />
-    <.sample_view
-      label="COG"
-      sample={get_latest_sample(@data_sources, "velocity_over_ground")}
-      field={:angle_rad}
-      unit={:deg}
-    />
-    <.sample_view
-      label="Speed Thru Water"
-      sample={get_latest_sample(@data_sources, "speed_through_water")}
-      field={:speed_m_s}
-      unit={:kn}
-    />
-    <.sample_view
-      label="SOG"
-      sample={get_latest_sample(@data_sources, "velocity_over_ground")}
-      field={:speed_m_s}
-      unit={:kn}
-    />
-    <.sample_view
-      label="Apparent Wind"
-      sample={get_latest_sample(@data_sources, "apparent_wind")}
-      field={:angle_rad}
-      unit={:deg}
-    />
-    <.sample_view
-      label="Depth"
-      sample={get_latest_sample(@data_sources, "depth")}
-      field={:depth_m}
-      unit={:ft}
-    />
-  </div>
-
-  <div>column 3</div>
 </div>
 
-<.live_inspect term={@data_sources} />
+<%= if @signals_modal_visible? do %>
+  <.modal id="signals_modal" show={true} on_cancel={JS.push("hide_signals_modal")}>
+    <:title>Select Signals for <%= @selected_boat.name %></:title>
+    <form phx-change="change_signal_visibility">
+      <%= for signal <- boat_signals(@selected_boat, @signals) do %>
+        <fieldset class="my-3">
+          <.input
+            type="checkbox"
+            id={"show_signal_" <> signal.channel.id}
+            name={signal.channel.id}
+            checked={signal.visible?}
+            errors={[]}
+            label={"#{signal.channel.name} - #{signal.channel.sensor.name}"}
+          />
+        </fieldset>
+      <% end %>
+    </form>
+  </.modal>
+<% end %>
