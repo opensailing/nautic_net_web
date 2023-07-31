@@ -1,4 +1,4 @@
-defmodule NauticNet.SailboatData do
+defmodule NauticNet.SailboatPolars do
   @moduledoc """
   Parses a CSV file into an Explorer dataframe.
 
@@ -8,8 +8,6 @@ defmodule NauticNet.SailboatData do
   require Explorer.DataFrame
   alias Explorer.DataFrame, as: DF
   alias Explorer.Series, as: S
-
-  @special_col_names ["True Wind Speed", "Opt Beat Angle", "Beat VMG", "Opt Run Angle", "Run VMG"]
 
   @miles_per_sec_to_kts 3128.31
 
@@ -54,35 +52,47 @@ defmodule NauticNet.SailboatData do
 
     # note: these are vmgs. We need to check if the other speeds are too.
     # to convert from vmg to tws (boat speed), just divide by cos(twa)
-    run_vmg = S.divide(@miles_per_sec_to_kts, optimal_data["Run VMG"])
+    run_speed_kts =
+      @miles_per_sec_to_kts
+      |> S.divide(optimal_data["Run VMG"])
+      |> S.divide(
+        S.cos(
+          S.subtract(
+            :math.pi(),
+            S.multiply(optimal_data["Opt Run Angle"], :math.pi() / 180)
+          )
+        )
+      )
 
     {run_aws_kts, run_awa} =
       convert_series(
-        run_vmg,
+        run_speed_kts,
         tws_series,
         optimal_data["Opt Run Angle"]
       )
 
-    beat_vmg = S.divide(@miles_per_sec_to_kts, optimal_data["Beat VMG"])
+    beat_speed_kts =
+      @miles_per_sec_to_kts
+      |> S.divide(optimal_data["Beat VMG"])
+      |> S.divide(S.cos(S.multiply(optimal_data["Opt Beat Angle"], :math.pi() / 180)))
 
     {beat_aws_kts, beat_awa} =
       convert_series(
-        beat_vmg,
+        beat_speed_kts,
         tws_series,
         optimal_data["Opt Beat Angle"]
       )
 
     optimal_angles_df =
-      %{
-        "Beat AWA" => beat_awa,
-        "Beat AWS" => beat_aws_kts,
-        "Beat VMG" => beat_vmg,
-        "Run AWA" => run_awa,
-        "Run AWS" => run_aws_kts,
-        "Run VMG" => run_vmg,
-        "TWS" => tws_series
-      }
-      |> DF.new()
+      DF.new(%{
+        "beat_awa" => beat_awa,
+        "beat_aws" => beat_aws_kts,
+        "beat_boat_speed" => beat_speed_kts,
+        "run_awa" => run_awa,
+        "run_aws" => run_aws_kts,
+        "run_boat_speed" => run_speed_kts,
+        "tws" => tws_series
+      })
 
     {df, optimal_angles_df}
   end
@@ -101,9 +111,11 @@ defmodule NauticNet.SailboatData do
       DF.mutate_with(df, fn df ->
         {result, awa} = convert_series(df[col], tws_df[col], df["twa"])
 
+        col_name = String.trim_trailing(col, " kts")
+
         [
-          {String.trim_trailing(col, " kts"), result},
-          {:"#{String.trim_trailing(col, " kts")}_awa", awa}
+          {:"boat_speed_#{col_name}", result},
+          {:"awa_#{col_name}", awa}
         ]
       end)
     end)
@@ -111,7 +123,6 @@ defmodule NauticNet.SailboatData do
   end
 
   defp convert_series(v_boat, v_wind, twa) do
-    IO.inspect({v_boat, v_wind, twa})
     v_boat_sq = S.pow(v_boat, 2.0)
     v_wind_sq = S.pow(v_wind, 2.0)
 

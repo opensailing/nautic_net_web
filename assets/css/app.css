@@ -9,3 +9,8 @@
     height: 700px;
     width: 100%;
 }
+
+.centralized {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+}
