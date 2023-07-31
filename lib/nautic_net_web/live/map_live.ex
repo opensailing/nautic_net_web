@@ -64,7 +64,7 @@ defmodule NauticNetWeb.MapLive do
       |> assign(:zoom_level, 15)
 
       # Timeline
-      |> assign(:inspect_at, DateTime.utc_now())
+      # |> assign(:inspect_at, DateTime.utc_now())
       |> select_date(params)
 
     {:ok, socket}
@@ -76,6 +76,7 @@ defmodule NauticNetWeb.MapLive do
       |> assign(date: params["date"])
       |> assign(from: params["from"])
       |> assign(to: params["to"])
+      |> assign(to: params["position"])
 
     {:noreply, socket}
   end
@@ -108,26 +109,19 @@ defmodule NauticNetWeb.MapLive do
     range_start_at = parse_unix_datetime(min, socket.assigns.local_date.timezone)
     range_end_at = parse_unix_datetime(max, socket.assigns.local_date.timezone)
 
-    from =
-      range_start_at
-      |> DateTime.to_time()
-      |> Time.to_string()
-      |> String.split(".")
-      |> List.first()
-
-    to =
-      range_end_at |> DateTime.to_time() |> Time.to_string() |> String.split(".") |> List.first()
+    from = to_time(range_start_at)
+    to = to_time(range_end_at)
+    position = to_time(socket.assigns.inspect_at)
 
     {:noreply,
      socket
      |> assign(:range_start_at, range_start_at)
-     |> assign(:from, from)
      |> assign(:range_end_at, range_end_at)
-     |> assign(:to, to)
      |> constrain_inspect_at()
      |> push_map_state()
      |> push_patch(
-       to: "/?date=#{socket.assigns.date || Timex.today(@timezone)}&from=#{from}&to=#{to}",
+       to:
+         "/?date=#{socket.assigns.date || Timex.today(@timezone)}&from=#{from}&to=#{to}&position=#{position}",
        replace: true
      )}
   end
@@ -378,12 +372,21 @@ defmodule NauticNetWeb.MapLive do
         assigns.inspect_at
       end
 
+    from = to_time(socket.assigns.range_start_at)
+    to = to_time(socket.assigns.range_end_at)
+    position = to_time(new_inspect_at)
+
     new_signals = Playback.fill_latest_samples(assigns.signals, new_inspect_at)
 
     socket
     |> assign(:signals, new_signals)
     |> assign(:inspect_at, new_inspect_at)
+    |> assign(:position, position)
     |> push_map_state()
+    |> push_patch(
+      to: "/?date=#{socket.assigns.date}&from=#{from}&to=#{to}&position=#{position}",
+      replace: true
+    )
   end
 
   defp set_live_position(socket) do
@@ -480,23 +483,9 @@ defmodule NauticNetWeb.MapLive do
     # Set up the range for the main slider
     {first_sample_at, last_sample_at} = Playback.get_sample_range_on(local_date)
 
-    range_start_at =
-      if params["date"] && params["from"] do
-        "#{params["date"]}T#{params["from"]}"
-        |> NaiveDateTime.from_iso8601!()
-        |> Timex.to_datetime(@timezone)
-      else
-        first_sample_at
-      end
-
-    range_end_at =
-      if params["date"] && params["to"] do
-        "#{params["date"]}T#{params["to"]}"
-        |> NaiveDateTime.from_iso8601!()
-        |> Timex.to_datetime(@timezone)
-      else
-        last_sample_at
-      end
+    range_start_at = build_datetime(params["date"], params["from"], first_sample_at)
+    range_end_at = build_datetime(params["date"], params["to"], last_sample_at)
+    position = build_datetime(params["date"], params["position"], DateTime.utc_now())
 
     from = if params["from"], do: params["from"], else: "00:00:00"
     to = if params["to"], do: params["to"], else: "23:59:59"
@@ -514,6 +503,7 @@ defmodule NauticNetWeb.MapLive do
     |> assign(:from, from)
     |> assign(:range_end_at, range_end_at)
     |> assign(:to, to)
+    |> assign(:inspect_at, position)
     |> constrain_inspect_at()
     |> push_event("configure", %{
       id: "range-slider",
@@ -527,17 +517,17 @@ defmodule NauticNetWeb.MapLive do
 
   # Ensure inspect_at lies within the range
   defp constrain_inspect_at(%{assigns: assigns} = socket) do
-    inspect_at = assigns.range_end_at
-    #   cond do
-    #     DateTime.compare(assigns.inspect_at, assigns.range_start_at) == :lt ->
-    #       assigns.range_start_at
+    inspect_at =
+      cond do
+        DateTime.compare(assigns.inspect_at, assigns.range_start_at) == :lt ->
+          assigns.range_start_at
 
-    #     DateTime.compare(assigns.inspect_at, assigns.range_end_at) == :gt ->
-    #       assigns.range_end_at
+        DateTime.compare(assigns.inspect_at, assigns.range_end_at) == :gt ->
+          assigns.range_end_at
 
-    #     :else ->
-    #       assigns.inspect_at
-    #   end
+        :else ->
+          assigns.inspect_at
+      end
 
     assign(socket, :inspect_at, inspect_at)
   end
@@ -565,6 +555,23 @@ defmodule NauticNetWeb.MapLive do
     |> Enum.map(&{&1.channel.boat.name, &1.channel.boat.id})
     |> Enum.uniq()
     |> Enum.sort()
+  end
+
+  defp build_datetime(nil, _time, default), do: default
+  defp build_datetime(_date, nil, default), do: default
+
+  defp build_datetime(date, time, _default) do
+    "#{date}T#{time}"
+    |> NaiveDateTime.from_iso8601!()
+    |> Timex.to_datetime(@timezone)
+  end
+
+  defp to_time(dt) do
+    dt
+    |> DateTime.to_time()
+    |> Time.to_string()
+    |> String.split(".")
+    |> List.first()
   end
 
   attr(:label, :string, required: true)
