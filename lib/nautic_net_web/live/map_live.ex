@@ -352,9 +352,7 @@ defmodule NauticNetWeb.MapLive do
       first_sample_at: DateTime.to_unix(assigns.first_sample_at),
       last_sample_at: DateTime.to_unix(assigns.last_sample_at),
       range_start_at: DateTime.to_unix(assigns.range_start_at),
-      from: DateTime.to_unix(assigns.range_start_at),
       range_end_at: DateTime.to_unix(assigns.range_end_at),
-      to: DateTime.to_unix(assigns.range_end_at),
       inspect_at: DateTime.to_unix(assigns.inspect_at)
     })
   end
@@ -379,7 +377,6 @@ defmodule NauticNetWeb.MapLive do
     socket
     |> assign(:signals, new_signals)
     |> assign(:inspect_at, new_inspect_at)
-    |> assign(:position, position)
     |> push_map_state()
     |> push_patch(
       to: "/?date=#{socket.assigns.date}&from=#{from}&to=#{to}&position=#{position}",
@@ -485,8 +482,6 @@ defmodule NauticNetWeb.MapLive do
     range_end_at = build_datetime(params["date"], params["to"], last_sample_at)
     position = build_datetime(params["date"], params["position"], DateTime.utc_now())
 
-    from = if params["from"], do: params["from"], else: "00:00:00"
-    to = if params["to"], do: params["to"], else: "23:59:59"
     first_position_signal = Enum.find(signals, &(&1.channel.type == :position))
 
     socket
@@ -498,9 +493,7 @@ defmodule NauticNetWeb.MapLive do
     |> assign(:first_sample_at, first_sample_at)
     |> assign(:last_sample_at, last_sample_at)
     |> assign(:range_start_at, range_start_at)
-    |> assign(:from, from)
     |> assign(:range_end_at, range_end_at)
-    |> assign(:to, to)
     |> assign(:inspect_at, position)
     |> constrain_inspect_at()
     |> push_event("configure", %{
