@@ -2,18 +2,20 @@ import noUiSlider from "nouislider";
 
 export default {
   mounted() {
-    let { min, max } = this.el.dataset;
+    let { min, max, from, to } = this.el.dataset;
     min = parseInt(min);
+    from = parseInt(from);
     max = parseInt(max);
+    to = parseInt(to);
 
     noUiSlider.create(this.el, {
-      start: [min, max],
+      start: [from, to],
       connect: true,
       behaviour: "tap-drag",
       range: { min, max },
     });
 
-    this.el.noUiSlider.on("update", ([min, max], _handle) => {
+    this.el.noUiSlider.on("update", ([min, max], _handle) => {      
       this.pushEvent("update_range", { min, max });
     });
 

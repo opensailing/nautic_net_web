@@ -38,7 +38,9 @@
     phx-hook="RangeSliderHook"
     phx-update="ignore"
     data-min={DateTime.to_unix(@first_sample_at)}
+    data-from={DateTime.to_unix(@range_start_at)}
     data-max={DateTime.to_unix(@last_sample_at)}
+    data-to={DateTime.to_unix(@range_end_at)}
   />
   <div class="flex justify-between mt-2">
     <div>From <%= format_time(@range_start_at) %></div>
