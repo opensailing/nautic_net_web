@@ -40,7 +40,6 @@ defmodule NauticNetWeb.MapLive do
 
   def mount(params, _session, socket) do
     if connected?(socket), do: PubSub.subscribe(NauticNet.PubSub, "leaflet")
-    IO.inspect(params)
 
     socket =
       socket
@@ -64,7 +63,6 @@ defmodule NauticNetWeb.MapLive do
       |> assign(:zoom_level, 15)
 
       # Timeline
-      # |> assign(:inspect_at, DateTime.utc_now())
       |> select_date(params)
 
     {:ok, socket}
