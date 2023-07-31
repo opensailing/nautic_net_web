@@ -110,7 +110,7 @@ defmodule NauticNetWeb.MapLive do
 
     query_params =
       %{
-        date: socket.assigns.date,
+        date: default_date(socket.assigns.date),
         from: to_time(range_start_at),
         to: to_time(range_end_at),
         playback: to_time(socket.assigns.inspect_at),
@@ -167,10 +167,12 @@ defmodule NauticNetWeb.MapLive do
   end
 
   def handle_event("select_date", params, socket) do
+    date = default_date(params["date"])
+
     socket =
       socket
       |> select_date(params)
-      |> push_patch(to: "/?date=#{params["date"]}", replace: true)
+      |> push_patch(to: "/?date=#{date}", replace: true)
 
     {:noreply, socket}
   end
@@ -384,7 +386,7 @@ defmodule NauticNetWeb.MapLive do
     # 10751 is the max value for position
 
     new_inspect_at =
-      if pos = params["playback"] do
+      if pos = params["position"] do
         parse_unix_datetime(pos, assigns.local_date.timezone)
       else
         assigns.inspect_at
@@ -489,8 +491,7 @@ defmodule NauticNetWeb.MapLive do
 
   # Set the date, boats, and data sources
   defp select_date(socket, params) do
-    date = if params["date"], do: Date.from_iso8601!(params["date"])
-    date = date || Timex.today(@timezone)
+    date = default_date(params["date"])
     local_date = %LocalDate{date: date, timezone: @timezone}
     selected_boats = selected_boats(params["boats"])
 
@@ -590,9 +591,20 @@ defmodule NauticNetWeb.MapLive do
   defp build_datetime(_date, nil, default), do: default
 
   defp build_datetime(date, time, _default) do
+    date = default_date(date)
+
     "#{date}T#{time}"
     |> NaiveDateTime.from_iso8601!()
     |> Timex.to_datetime(@timezone)
+  end
+
+  defp default_date(nil), do: Timex.today(@timezone)
+
+  defp default_date(date) when is_binary(date) do
+    case Date.from_iso8601(date) do
+      {:ok, date} -> date
+      _ -> Timex.today(@timezone)
+    end
   end
 
   defp to_time(dt) do
