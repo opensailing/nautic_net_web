@@ -50,22 +50,58 @@ defmodule NauticNetWeb.SailboatPolarsLive do
 
   def mount(_, _, socket) do
     socket = load(socket, :sailboat_polars)
-    Process.send_after(self(), :refresh, :timer.seconds(10))
 
     {:ok, socket}
+  end
+
+  def handle_event("plot", %{"polar_plot" => %{"desired_angles" => desired_angles}}, socket) do
+    desired_angles = if desired_angles == "", do: nil, else: desired_angles
+
+    cond do
+      desired_angles == socket.assigns.desired_angles ->
+        {:noreply, socket}
+
+      is_nil(desired_angles) ->
+        {:noreply,
+         socket
+         |> assign(:desired_angles, desired_angles)
+         |> push_event("update_polar_plot", %{
+           json_spec: plot_json(socket.assigns.interpolation_by_tws, nil)
+         })}
+
+      true ->
+        angles_of_interest =
+          desired_angles
+          |> String.split(",", trim: true)
+          |> Enum.map(fn val ->
+            {v, ""} = val |> String.trim() |> Float.parse()
+            v
+          end)
+
+        {:noreply,
+         socket
+         |> assign(:desired_angles, desired_angles)
+         |> push_event("update_polar_plot", %{
+           json_spec: plot_json(socket.assigns.interpolation_by_tws, angles_of_interest)
+         })}
+    end
   end
 
   defp load(socket, :sailboat_polars) do
     {polars_df, run_beat_df} =
       SailboatPolars.load(Path.join(:code.priv_dir(:nautic_net), "sample_sailboat_csv.csv"))
 
+    interpolation_by_tws = SailboatPolars.polar_interpolation(polars_df, run_beat_df)
+
     socket
     |> assign(
       sailboat_polars: polars_df_to_params(polars_df),
-      run_beat_polars: run_beat_polars_df_to_params(run_beat_df)
+      run_beat_polars: run_beat_polars_df_to_params(run_beat_df),
+      interpolation_by_tws: interpolation_by_tws,
+      desired_angles: nil
     )
     |> then(
-      &push_event(&1, "update_polar_plot", %{json_spec: plot_json(polars_df, run_beat_df, nil)})
+      &push_event(&1, "update_polar_plot", %{json_spec: plot_json(interpolation_by_tws, nil)})
     )
   end
 
@@ -110,9 +146,7 @@ defmodule NauticNetWeb.SailboatPolarsLive do
     """
   end
 
-  defp plot_json(polars_df, run_beat_df, angles_of_interest) do
-    data_by_tws = SailboatPolars.polar_interpolation(polars_df, run_beat_df)
-
+  defp plot_json(interpolation_by_tws, angles_of_interest) do
     radius_marks = Enum.to_list(4..16//2)
 
     vl_grid =
@@ -127,7 +161,7 @@ defmodule NauticNetWeb.SailboatPolarsLive do
       )
 
     data_inputs =
-      data_by_tws
+      interpolation_by_tws
       |> Enum.flat_map(fn {tws, {model, given_theta, beat_theta, run_theta}} ->
         {start, stop} = Enum.min_max([beat_theta, run_theta | given_theta])
         line_angles = Nx.linspace(start, stop, n: 100)

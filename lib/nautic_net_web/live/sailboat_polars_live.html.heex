@@ -29,8 +29,14 @@
         <:col :let={row} label="Run Boat Speed (kts)"><.float2 value={row.run_boat_speed} /></:col>
       </.table>
     </div>
-    <div style="display: flex; align-items: center; justify-content: center">
+    <div style="display: grid; grid-template-columns: 1fr">
       <div id="polar-plot-graph" phx-hook="SailboatPolarPlotHook" phx-update="ignore" />
+      <.simple_form :let={f} as={:polar_plot} phx-submit="plot">
+        <.input field={{f, :desired_angles}} label="Desired Angles" value=""/>
+        <:actions>
+          <.button>Calculate</.button>
+        </:actions>
+      </.simple_form>
     </div>
   </div>
   <div />
