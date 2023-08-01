@@ -28,7 +28,7 @@ import SailboatPolarPlotHook from "./sailboatPolarPlot";
 let Hooks = {
   RangeSliderHook,
   LeafletHook,
-  SailboatPolarPlotHook
+  SailboatPolarPlotHook,
 };
 
 let csrfToken = document
@@ -47,9 +47,10 @@ window.addEventListener("phx:page-loading-start", (info) =>
 window.addEventListener("phx:page-loading-stop", (info) => topbar.hide());
 
 window.addEventListener("phx:copy", (event) => {
-  let text = event.target.value; // Alternatively use an element or data tag!
+  let text = event.target.value.trim();
+
   navigator.clipboard.writeText(text).then(() => {
-    console.log("Copied to clipboard!"); // Or a nice tooltip or something.
+    console.log("Copied to clipboard!");
   });
 });
 

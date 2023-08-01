@@ -48,7 +48,7 @@
         </:actions>
       </.simple_form>
       <.simple_form :let={f} as={:export_csv} phx-submit="export_csv">
-        <.input id="csv-container" field={{f, :csv}} label="csv" type="textarea" value={@rendered_csv} readonly />
+        <.input id="csv-container" field={{f, :csv}} name="csv" label="Rendered CSV" type="textarea" value={@rendered_csv} readonly />
         <:actions>
           <.button>Export as CSV</.button>
         </:actions>
