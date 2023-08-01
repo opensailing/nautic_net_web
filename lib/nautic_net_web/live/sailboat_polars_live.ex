@@ -49,9 +49,50 @@ defmodule NauticNetWeb.SailboatPolarsLive do
   end
 
   def mount(_, _, socket) do
-    socket = load(socket, :sailboat_polars)
+    {polars_df, run_beat_df} =
+      SailboatPolars.load(Path.join(:code.priv_dir(:nautic_net), "sample_sailboat_csv.csv"))
+
+    socket =
+      socket
+      |> load(polars_df, run_beat_df)
+      |> assign(:csv_changeset, csv_changeset(%{}, []))
 
     {:ok, socket}
+  end
+
+  defp csv_changeset(params, required_fields \\ [:sku, :sail_kind]) do
+    {%{}, %{sku: :string, sail_kind: :string}}
+    |> Ecto.Changeset.cast(params, [:sku, :sail_kind])
+    |> Ecto.Changeset.validate_required(required_fields)
+    |> Ecto.Changeset.validate_inclusion(:sail_kind, ~w(spin nonspin))
+    |> IO.inspect()
+  end
+
+  def handle_event("validate_process_csv", form_data, socket) do
+    changeset =
+      form_data
+      |> csv_changeset()
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, csv_changeset: changeset)}
+  end
+
+  def handle_event(
+        "process_csv",
+        form_data,
+        socket
+      ) do
+    case csv_changeset(form_data) |> Ecto.Changeset.apply_action(:validate) do
+      {:ok, form_data} ->
+        {polars_df, run_beat_df} =
+          SailboatPolars.load_from_url(form_data.sku, form_data.sail_kind)
+
+        # do something
+        {:noreply, load(socket, polars_df, run_beat_df)}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, csv_changeset: changeset)}
+    end
   end
 
   def handle_event("plot", %{"polar_plot" => %{"desired_angles" => desired_angles}}, socket) do
@@ -87,10 +128,7 @@ defmodule NauticNetWeb.SailboatPolarsLive do
     end
   end
 
-  defp load(socket, :sailboat_polars) do
-    {polars_df, run_beat_df} =
-      SailboatPolars.load(Path.join(:code.priv_dir(:nautic_net), "sample_sailboat_csv.csv"))
-
+  defp load(socket, polars_df, run_beat_df) do
     interpolation_by_tws = SailboatPolars.polar_interpolation(polars_df, run_beat_df)
 
     socket

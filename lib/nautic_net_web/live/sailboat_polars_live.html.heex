@@ -1,5 +1,15 @@
 <div style="display: grid; grid-template-columns: 1fr 2fr 1fr;">
-  <div />
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr">
+    <div />
+    <.simple_form :let={f} for={@csv_changeset} as={:csv_form} phx-change="validate_process_csv" phx-submit="process_csv">
+      <.input name="sku" field={{f, :sky}} label="SKU" value="h-2-2023-11133-7929-0-579" />
+      <.input name="sail_kind" value={"spin"} field={{f, :sail_kind}} label="Sail Kind" type="select" options={["Spinnaker": "spin", "Non-Spinnaker": "nonspin"]} />
+      <:actions>
+        <.button>Process CSV</.button>
+      </:actions>
+    </.simple_form>
+    <div />
+  </div>
   <div>
     <div>
       <.header> Boat Speed (kts) </.header>

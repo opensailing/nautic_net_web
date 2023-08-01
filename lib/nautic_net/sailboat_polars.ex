@@ -32,6 +32,87 @@ defmodule NauticNet.SailboatPolars do
 
     df = DF.head(df, split_index)
 
+    do_load(df, optimal_angles_df)
+  end
+
+  @doc """
+
+  """
+  def load_from_url(sku, sail_kind) do
+    url = "https://regattaman.com/cert_form.php?" <> URI.encode_query(%{"sku" => sku})
+
+    doc =
+      :get
+      |> Finch.build(url)
+      |> Finch.request!(NauticNet.Finch)
+      |> Map.get(:body)
+      |> Floki.parse_document!()
+
+    table = Floki.find(doc, "#polar_time_#{sail_kind} table")
+
+    [{"thead", _, header}] = Floki.find(table, "thead")
+    [{"tbody", _, body}] = Floki.find(table, "tbody")
+
+    df_cols =
+      Enum.map(header, fn
+        {"th", _attrs, ["True Wind Speed"]} -> {"row_names", :string}
+        {"th", _attrs, [content]} -> {String.trim(content), :float}
+      end)
+
+    init_data = Map.new(df_cols, fn {name, _type} -> {name, []} end)
+
+    df_data =
+      Enum.reduce(body, init_data, fn {"tr", _, row}, data ->
+        Enum.zip_reduce(df_cols, row, data, fn
+          {k, :string}, {"td", _, [val_str]}, data ->
+            Map.update!(data, k, &[String.trim(val_str) | &1])
+
+          {k, :float}, {"td", _, [val_str]}, data ->
+            {val, _} = val_str |> String.replace(",", "") |> String.trim() |> Float.parse()
+            Map.update!(data, k, &[val | &1])
+        end)
+      end)
+
+    opt_df_indices =
+      df_data["row_names"]
+      |> Enum.with_index()
+      |> Enum.filter(fn {row, idx} ->
+        row in ["Opt Run Angle", "Run VMG", "Beat VMG", "Opt Beat Angle"]
+      end)
+      |> Enum.map(&elem(&1, 1))
+
+    df_data =
+      Enum.map(df_data, fn {row, data} ->
+        {opt_df_data, df_data} =
+          data
+          |> Enum.with_index()
+          |> Enum.split_with(fn {x, idx} ->
+            idx in opt_df_indices
+          end)
+
+        {row, {Enum.map(opt_df_data, &elem(&1, 0)), Enum.map(df_data, &elem(&1, 0))}}
+      end)
+
+    output_df_data = Map.new(df_data, fn {k, {_, v}} -> {k, v} end)
+
+    {%{"row_names" => opt_df_names}, opt_df_vals} =
+      Map.new(df_data, fn {k, {v, _}} -> {k, v} end) |> Map.split(["row_names"])
+
+    opt_df_vals =
+      Enum.map(df_cols -- [{"row_names", :string}], fn {col, _} -> opt_df_vals[col] end)
+
+    opt_df_data =
+      Enum.zip_with(opt_df_vals, & &1)
+      |> Enum.zip_with(opt_df_names, fn v, k -> {k, v} end)
+      |> Map.new()
+
+    opt_df = DF.new(opt_df_data, dtypes: Enum.map(opt_df_names, &{&1, :float}))
+    df = DF.new(output_df_data, dtypes: df_cols)
+
+    do_load(df, opt_df)
+  end
+
+  defp do_load(df, optimal_angles_df) do
     twa =
       df["row_names"]
       |> S.to_list()
