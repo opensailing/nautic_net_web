@@ -1,5 +1,6 @@
 import Leaflet from "leaflet";
 import "leaflet-canvas-markers";
+import "leaflet-rotatedmarker";
 import { GeoData } from "./geodata_pb.js";
 
 const colorArrayToRgb = ([r, g, b]) => `rgb(${r}, ${g}, ${b})`;
@@ -49,7 +50,7 @@ const drawArrowIcon = (ctx, speed, width, height) => {
 };
 
 L.Canvas.include({
-  _updateCustomIconMarker: function (layer) {
+  _updateCustomIconMarker: function(layer) {
     if (!this._drawing || layer._empty()) {
       return;
     }
@@ -74,7 +75,7 @@ L.Canvas.include({
 });
 
 const CustomIconMarker = L.CircleMarker.extend({
-  _updatePath: function () {
+  _updatePath: function() {
     this._renderer._updateCustomIconMarker(this);
   },
 });
@@ -113,9 +114,7 @@ class BoatView {
     this.polyline.setLatLngs(newCoords.map((c) => [c.lat, c.lng]));
 
     if (lastCoord) {
-      this.marker.setLatLng([lastCoord.lat, lastCoord.lng]);
-
-      // TODO: Rotate marker based on lastCoord.heading_rad (CustomIconMarker)
+      this.marker.setLatLng([lastCoord.lat, lastCoord.lng]).setRotationAngle(lastCoord.heading_deg);
     }
   }
 
@@ -336,7 +335,7 @@ const LeafletHook = {
       });
 
       const layer = L.geoJSON(geojsonData, {
-        pointToLayer: function (feature, latlng) {
+        pointToLayer: function(feature, latlng) {
           const { direction, speed } = feature.properties;
 
           if (speed == 0) {
