@@ -284,7 +284,7 @@ defmodule NauticNetWeb.MapLive do
             "time" => DateTime.to_unix(coord.time),
             "lat" => coord.latitude,
             "lng" => coord.longitude,
-            "heading_rad" => coord.true_heading
+            "heading_deg" => coord.magnetic_heading
           }
         end)
     }

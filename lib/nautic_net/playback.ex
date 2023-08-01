@@ -54,7 +54,7 @@ defmodule NauticNet.Playback do
   @doc """
   Returns a list of coordinate maps for display in MapLive.
 
-  Keys: :time, :latitude, :longitude, :true_heading
+  Keys: :time, :latitude, :longitude, :magnetic_heading
   """
   def list_coordinates(%Channel{} = channel, local_date_or_interval, local_timezone) do
     positions =
@@ -73,17 +73,26 @@ defmodule NauticNet.Playback do
         }
       end)
 
-    # TODO: Fetch :true_heading samples on the same date
-    headings = []
+    headings =
+      Sample
+      |> where(boat_id: ^channel.boat.id)
+      |> where(type: :magnetic_heading)
+      |> where_local_date(local_date_or_interval, local_timezone)
+      |> order_by([s], s.time)
+      |> select([s], {s.time, s.angle})
+      |> Repo.all()
+      |> Enum.map(fn {utc_datetime, angle} ->
+        %{time: utc_datetime, angle: angle * 180 / :math.pi()}
+      end)
 
     merged_coordinates =
       collate_closest_samples(positions, headings, fn
         position, nil ->
           # Need to specify some value...
-          Map.put(position, :true_heading, 0)
+          Map.put(position, :magnetic_heading, 0)
 
         position, heading ->
-          Map.put(position, :true_heading, heading.angle_rad * 180 / :math.pi())
+          Map.put(position, :magnetic_heading, heading.angle)
       end)
 
     merged_coordinates
@@ -120,24 +129,25 @@ defmodule NauticNet.Playback do
 
   defp collate_closest_samples(
          [sample | rest] = samples,
-         [ms1, ms2 | ms_rest] = merge_samples,
+         [ms | ms_rest] = merge_samples,
          merger,
          acc
        ) do
     cond do
-      # ms1 is the latest sample before sample, so use it to merge
-      DateTime.compare(ms1.time, sample.time) in [:lt, :eq] and
-          DateTime.compare(ms2.time, sample.time) == :gt ->
-        merged = merger.(sample, ms1)
+      # merge sample is the latest sample before sample and is inside time window
+      DateTime.compare(ms.time, sample.time) in [:lt, :eq] and
+          abs(DateTime.diff(ms.time, sample.time)) <= 1 ->
+        merged = merger.(sample, ms)
+        collate_closest_samples(rest, ms_rest, merger, [merged | acc])
+
+      # merge sample is happening later, so let's try it with the next position
+      DateTime.compare(ms.time, sample.time) == :gt ->
+        merged = merger.(sample, nil)
         collate_closest_samples(rest, merge_samples, merger, [merged | acc])
 
-      # ms1 and ms2 are BOTH before sample, so pop ms1 off the queue
-      # DateTime.compare(ms1.time, sample.time) == :lt and
-      #     DateTime.compare(ms2.time, sample.time) in [:lt, :eq] ->
-      #   collate_closest_samples(samples, [ms2 | ms_rest], merger, acc)
-
       :else ->
-        collate_closest_samples(samples, [ms2 | ms_rest], merger, acc)
+        merged = merger.(sample, nil)
+        collate_closest_samples(samples, ms_rest, merger, [merged | acc])
     end
   end
 
