@@ -46,6 +46,13 @@ window.addEventListener("phx:page-loading-start", (info) =>
 );
 window.addEventListener("phx:page-loading-stop", (info) => topbar.hide());
 
+window.addEventListener("phx:copy", (event) => {
+  let text = event.target.value; // Alternatively use an element or data tag!
+  navigator.clipboard.writeText(text).then(() => {
+    console.log("Copied to clipboard!"); // Or a nice tooltip or something.
+  });
+});
+
 // connect if there are any LiveViews on the page
 liveSocket.connect();
 

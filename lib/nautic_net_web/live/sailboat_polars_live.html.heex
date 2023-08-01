@@ -47,6 +47,17 @@
           <.button>Calculate</.button>
         </:actions>
       </.simple_form>
+      <.simple_form :let={f} as={:export_csv} phx-submit="export_csv">
+        <.input id="csv-container" field={{f, :csv}} label="csv" type="textarea" value={@rendered_csv} readonly />
+        <:actions>
+          <.button>Export as CSV</.button>
+        </:actions>
+      </.simple_form>
+      <div>
+        <%= if @rendered_csv != "" do %>
+          <.button phx-click={JS.dispatch("phx:copy", to: "#csv-container")}>Copy to Clipboard</.button>
+        <% end %>
+      </div>
     </div>
   </div>
   <div />

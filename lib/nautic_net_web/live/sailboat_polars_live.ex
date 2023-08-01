@@ -56,6 +56,7 @@ defmodule NauticNetWeb.SailboatPolarsLive do
       socket
       |> load(polars_df, run_beat_df)
       |> assign(:csv_changeset, csv_changeset(%{}, []))
+      |> assign(rendered_csv: "")
 
     {:ok, socket}
   end
@@ -65,7 +66,6 @@ defmodule NauticNetWeb.SailboatPolarsLive do
     |> Ecto.Changeset.cast(params, [:sku, :sail_kind])
     |> Ecto.Changeset.validate_required(required_fields)
     |> Ecto.Changeset.validate_inclusion(:sail_kind, ~w(spin nonspin))
-    |> IO.inspect()
   end
 
   def handle_event("validate_process_csv", form_data, socket) do
@@ -126,6 +126,44 @@ defmodule NauticNetWeb.SailboatPolarsLive do
            json_spec: plot_json(socket.assigns.interpolation_by_tws, angles_of_interest)
          })}
     end
+  end
+
+  def handle_event("export_csv", _, socket) do
+    desired_angles = socket.assigns.desired_angles || Enum.to_list(40..170//10)
+    desired_angles_t = Nx.tensor(desired_angles)
+
+    data =
+      for {tws, {model, _given_theta, _beat_theta, _run_theta}} <-
+            socket.assigns.interpolation_by_tws,
+          into: %{} do
+        speeds = Interpolation.predict(model, desired_angles_t) |> Nx.to_list()
+
+        {tws, speeds}
+      end
+
+    col_names = ["twa" | Enum.map(Enum.sort(Map.keys(data)), &to_string/1)]
+
+    df_rows =
+      data
+      |> Map.put("twa", desired_angles)
+      |> Map.new(fn {k, v} -> {to_string(k), v} end)
+      |> DF.new()
+      |> DF.to_rows()
+
+    csv_body =
+      Enum.map_join(df_rows, "\n", fn row ->
+        Enum.map_join(col_names, ",", &to_string(row[&1]))
+      end)
+
+    csv_header =
+      Enum.map_join(col_names, ",", fn
+        "twa" -> "twa"
+        tws -> "#{tws} kts"
+      end)
+
+    csv = csv_header <> "\n" <> csv_body
+
+    {:noreply, assign(socket, :rendered_csv, csv)}
   end
 
   defp load(socket, polars_df, run_beat_df) do

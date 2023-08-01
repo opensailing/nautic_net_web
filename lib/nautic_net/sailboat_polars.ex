@@ -30,8 +30,6 @@ defmodule NauticNet.SailboatPolars do
 
     optimal_angles_df = DF.tail(df, DF.n_rows(df) - split_index - 1)
 
-    IO.inspect(optimal_angles_df, label: "correct")
-
     df = DF.head(df, split_index)
 
     do_load(df, optimal_angles_df)
@@ -98,18 +96,6 @@ defmodule NauticNet.SailboatPolars do
     output_df_data = Map.new(df_data, fn {k, {_, v}} -> {k, v} end)
 
     opt_df_data = Map.new(df_data, fn {k, {v, _}} -> {k, v} end)
-
-    # IO.inspect(opt_df_vals, label: "opt_df_vals")
-
-    # opt_df_vals =
-    #   Enum.map(df_cols -- [{"row_names", :string}], fn {col, _} -> opt_df_vals[col] end)
-
-    # opt_df_data =
-    #   Enum.zip_with(opt_df_vals, & &1)
-    #   |> Enum.zip_with(opt_df_names, fn v, k -> {k, v} end)
-    #   |> Map.new()
-    #   |> Map.put("row_names", Enum.map(df_cols, &elem(&1, 0)) -- ["row_names"])
-    #   |> IO.inspect(label: "opt_df_data")
 
     opt_df = DF.new(opt_df_data)
 
