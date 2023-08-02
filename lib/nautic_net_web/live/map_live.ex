@@ -752,7 +752,9 @@ defmodule NauticNetWeb.MapLive do
   end
 
   defp position_signals(signals) do
-    Enum.filter(signals, &(&1.channel.type == :position))
+    signals
+    |> Enum.filter(&(&1.channel.type == :position))
+    |> Enum.uniq_by(& &1.channel.boat.name)
   end
 
   defp boat_count(signals) do
