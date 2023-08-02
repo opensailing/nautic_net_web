@@ -1,1 +1,0 @@
-Logger.configure(level: :info)
