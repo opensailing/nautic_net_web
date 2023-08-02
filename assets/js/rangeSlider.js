@@ -30,6 +30,7 @@ export default {
     this.handleEvent("configure", ({ min, max }) => {
       this.el.noUiSlider.updateOptions({ range: { min, max } });
       this.el.noUiSlider.set([min, max]);
+      this.el.noUiSlider.reset();
     });
   },
 };

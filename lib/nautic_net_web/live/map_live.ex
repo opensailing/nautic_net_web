@@ -535,11 +535,11 @@ defmodule NauticNetWeb.MapLive do
     |> assign(:playback, playback)
     |> assign(:boats, selected_boats)
     |> constrain_inspect_at()
-    # |> push_event("configure", %{
-    #   id: "range-slider",
-    #   min: DateTime.to_unix(first_sample_at),
-    #   max: DateTime.to_unix(last_sample_at)
-    # })
+    |> push_event("configure", %{
+      id: "range-slider",
+      min: DateTime.to_unix(first_sample_at),
+      max: DateTime.to_unix(last_sample_at)
+    })
     |> push_boat_coordinates()
     |> push_map_state()
     |> select_boat(first_position_signal)
