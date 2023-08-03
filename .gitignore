@@ -44,3 +44,4 @@ npm-debug.log
 /priv/static/robots*
 
 /tmp/
+/.iex.exs
