@@ -1,9 +1,22 @@
 <div style="display: grid; grid-template-columns: 1fr 2fr 1fr;">
   <div style="display: grid; grid-template-columns: 1fr 1fr 1fr">
     <div />
-    <.simple_form :let={f} for={@csv_changeset} as={:csv_form} phx-change="validate_process_csv" phx-submit="process_csv">
+    <.simple_form
+      :let={f}
+      for={@csv_changeset}
+      as={:csv_form}
+      phx-change="validate_process_csv"
+      phx-submit="process_csv"
+    >
       <.input name="sku" field={{f, :sky}} label="SKU" value={@sku} />
-      <.input name="sail_kind" value={@sail_kind} field={{f, :sail_kind}} label="Sail Kind" type="select" options={["Spinnaker": "spin", "Non-Spinnaker": "nonspin"]} />
+      <.input
+        name="sail_kind"
+        value={@sail_kind}
+        field={{f, :sail_kind}}
+        label="Sail Kind"
+        type="select"
+        options={[Spinnaker: "spin", "Non-Spinnaker": "nonspin"]}
+      />
       <:actions>
         <.button>Process CSV</.button>
       </:actions>
@@ -12,7 +25,7 @@
   </div>
   <div>
     <div>
-      <.header> Boat Speed (kts) </.header>
+      <.header>Boat Speed (kts)</.header>
       <.table id="sailboat_polars" rows={@sailboat_polars}>
         <:col :let={row} label="True Wind Angle"><%= row.twa %></:col>
         <:col :let={row} label="4 kts"><.float2 value={row.boat_speed_4} /></:col>
@@ -26,37 +39,56 @@
       </.table>
     </div>
     <div>
-      <.header> Sailboat Run/Beat Data </.header>
+      <.header>Sailboat Run/Beat Data</.header>
       <.table id="run_beat_polars" rows={@run_beat_polars}>
         <:col :let={row} label="True Wind Speed (kts)"><.float2 value={row.tws} /></:col>
         <:col :let={row} label="Beat AWS (kts)"><.float2 value={row.beat_aws} /></:col>
         <:col :let={row} label="Beat AWA (°)"><.float2 value={row.beat_awa} /></:col>
         <:col :let={row} label="Beat TWA (°)"><.float2 value={row.beat_twa} /></:col>
-        <:col :let={row} label="Beat Boat Speed (kts)"><.float2 value={row.beat_boat_speed} /></:col>
+        <:col :let={row} label="Beat Boat Speed (kts)">
+          <.float2 value={row.beat_boat_speed} />
+        </:col>
         <:col :let={row} label="Run AWS (kts)"><.float2 value={row.run_aws} /></:col>
         <:col :let={row} label="Run AWA (°)"><.float2 value={row.run_awa} /></:col>
         <:col :let={row} label="Run TWA (°)"><.float2 value={row.run_twa} /></:col>
-        <:col :let={row} label="Run Boat Speed (kts)"><.float2 value={row.run_boat_speed} /></:col>
+        <:col :let={row} label="Run Boat Speed (kts)">
+          <.float2 value={row.run_boat_speed} />
+        </:col>
       </.table>
     </div>
     <div style="display: grid; grid-template-columns: 1fr">
       <div id="polar-plot-graph" phx-hook="SailboatPolarPlotHook" phx-update="ignore" />
       <.simple_form :let={f} as={:polar_plot} phx-submit="plot">
-        <.input field={{f, :desired_angles}} label="Desired Angles" value=""/>
+        <.input field={{f, :desired_angles}} label="Desired Angles" value="" />
         <:actions>
           <.button>Calculate</.button>
         </:actions>
       </.simple_form>
       <.simple_form :let={f} as={:export_csv} phx-submit="export_csv">
-        <.input id="csv-container" field={{f, :csv}} label="Rendered CSV" type="textarea" value={@rendered_csv} readonly />
-        <.input field={{f, :additional_tws}} label="Additional TWS" type="text" value={@export_csv["additional_tws"]} placeholder="Additional values for interpolation" />
+        <.input
+          id="csv-container"
+          field={{f, :csv}}
+          label="Rendered CSV"
+          type="textarea"
+          value={@rendered_csv}
+          readonly
+        />
+        <.input
+          field={{f, :additional_tws}}
+          label="Additional TWS"
+          type="text"
+          value={@export_csv["additional_tws"]}
+          placeholder="Additional values for interpolation"
+        />
         <:actions>
           <.button>Export as CSV</.button>
         </:actions>
       </.simple_form>
       <div>
         <%= if @rendered_csv != "" do %>
-          <.button phx-click={JS.dispatch("phx:copy", to: "#csv-container")}>Copy to Clipboard</.button>
+          <.button phx-click={JS.dispatch("phx:copy", to: "#csv-container")}>
+            Copy to Clipboard
+          </.button>
         <% end %>
       </div>
     </div>
