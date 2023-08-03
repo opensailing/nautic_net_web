@@ -1,0 +1,21 @@
+# Start from the PostgreSQL 14 image
+FROM postgres:14-bullseye
+
+RUN apt-get update && apt-get install -y gnupg postgresql-common apt-transport-https lsb-release wget
+
+# Add the TimescaleDB's third party repository
+RUN echo "deb https://packagecloud.io/timescale/timescaledb/debian/ $(lsb_release -c -s) main" | tee /etc/apt/sources.list.d/timescaledb.list
+
+# Get the signing key for the repository
+RUN wget --quiet -O - https://packagecloud.io/timescale/timescaledb/gpgkey | apt-key add -
+
+# Update the system, install TimescaleDB and PostGIS
+RUN apt-get update \
+    && apt-get install -y timescaledb-2-postgresql-14 postgis postgresql-14-postgis-3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Enable the TimescaleDB and PostGIS extensions - we'll run this later
+COPY timescaledb-init.sql /docker-entrypoint-initdb.d/
+
+# Run PostgreSQL (this is the same command that the PostgreSQL Docker image uses)
+CMD ["postgres"]
