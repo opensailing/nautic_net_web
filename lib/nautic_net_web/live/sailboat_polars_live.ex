@@ -50,24 +50,29 @@ defmodule NauticNetWeb.SailboatPolarsLive do
     ]
   end
 
-  def mount(_, _, socket) do
-    {polars_df, run_beat_df} =
-      SailboatPolars.load(Path.join(:code.priv_dir(:nautic_net), "sample_sailboat_csv.csv"))
-
-    sku = "h-2-2023-11133-7929-0-579"
+  def mount(params, _, socket) do
+    sku = params["sku"] || ""
+    sail_kind = params["sail_kind"] || "spin"
 
     socket =
-      socket
-      |> assign(
+      assign(socket,
         csv_changeset: csv_changeset(%{}, []),
         rendered_csv: "",
         export_csv: %{},
-        sail_kind: "spin",
+        sail_kind: sail_kind,
         desired_angles: Enum.to_list(20..180//10),
         sku: sku,
         plot_title: "Boat Speed (kts) [#{sku} - Spinnaker]"
       )
-      |> load(polars_df, run_beat_df)
+
+    socket =
+      if sku != "" do
+        {polars_df, run_beat_df} = SailboatPolars.load_from_url(sku, sail_kind)
+
+        load(socket, polars_df, run_beat_df)
+      else
+        assign(socket, sailboat_polars: [], run_beat_polars: [], interpolation_by_tws: [])
+      end
 
     {:ok, socket}
   end
