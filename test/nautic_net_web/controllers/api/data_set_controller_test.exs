@@ -16,7 +16,7 @@ defmodule NauticNetWeb.Api.DataSetControllerTest do
           ref: "some ref",
           boat_identifier: "BOAT",
           data_points: [
-            Protobuf.DataSet.DataPoint.new!(
+            DataPoint.new!(
               timestamp: Util.datetime_to_protobuf_timestamp(now),
               hw_id: 123,
               sample:

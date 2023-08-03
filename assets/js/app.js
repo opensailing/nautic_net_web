@@ -23,10 +23,12 @@ import { LiveSocket } from "phoenix_live_view";
 import topbar from "../vendor/topbar";
 import LeafletHook from "./leaflet";
 import RangeSliderHook from "./rangeSlider";
+import SailboatPolarPlotHook from "./sailboatPolarPlot";
 
 let Hooks = {
   RangeSliderHook,
   LeafletHook,
+  SailboatPolarPlotHook,
 };
 
 let csrfToken = document
@@ -43,6 +45,14 @@ window.addEventListener("phx:page-loading-start", (info) =>
   topbar.delayedShow(200)
 );
 window.addEventListener("phx:page-loading-stop", (info) => topbar.hide());
+
+window.addEventListener("phx:copy", (event) => {
+  let text = event.target.value.trim();
+
+  navigator.clipboard.writeText(text).then(() => {
+    console.log("Copied to clipboard!");
+  });
+});
 
 // connect if there are any LiveViews on the page
 liveSocket.connect();
