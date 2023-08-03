@@ -206,39 +206,11 @@ defmodule NauticNetWeb.SailboatPolarsLive do
       ["TWS" | Enum.map(desired_angles, &(&1 |> round() |> to_string() |> Kernel.<>("°")))]
       |> Enum.join(",")
 
-    csv_body_rows_by_tws =
-      Enum.map(tws, fn k ->
-        values =
-          case df_cols[to_string(k)] do
-            nil ->
-              models_by_tws |> Interpolation.predict_new_tws(k, desired_angles_t) |> Nx.to_list()
-
-            val ->
-              val
-          end
-
-        {k, to_string(k) <> "," <> Enum.map_join(values, ",", &float2str/1)}
-      end)
+    csv_body_rows_by_tws = csv_body_rows_by_tws(tws, models_by_tws, df_cols, desired_angles_t)
 
     csv_header = csv_header <> ",Upwind VMG,Upwind Angle,Downwind VMG,Downwind Angle"
 
-    opt_data_by_tws =
-      Map.new(socket.assigns.run_beat_polars, fn %{
-                                                   tws: tws,
-                                                   beat_boat_speed: beat_boat_speed,
-                                                   beat_twa: beat_twa,
-                                                   run_boat_speed: run_boat_speed,
-                                                   run_twa: run_twa
-                                                 } ->
-        values = [
-          beat_boat_speed * :math.cos(@deg2rad * beat_twa),
-          beat_twa,
-          abs(run_boat_speed * :math.cos(@deg2rad * run_twa)),
-          run_twa
-        ]
-
-        {round(tws), values}
-      end)
+    opt_data_by_tws = opt_data_by_tws(socket.assigns.run_beat_polars)
 
     [first_tws | _] = existing_tws = Map.keys(opt_data_by_tws) |> Enum.sort()
 
@@ -389,23 +361,7 @@ defmodule NauticNetWeb.SailboatPolarsLive do
         speeds = Interpolation.predict(model, angles_of_interest) |> Nx.to_list()
 
         {low_a, low_s, mid_a, mid_s, high_a, high_s} =
-          Enum.zip_reduce(line_speeds, line_angles, {[], [], [], [], [], []}, fn s,
-                                                                                 a,
-                                                                                 {low_a, low_s,
-                                                                                  mid_a, mid_s,
-                                                                                  high_a,
-                                                                                  high_s} ->
-            cond do
-              a < min_given_theta ->
-                {[a | low_a], [s | low_s], mid_a, mid_s, high_a, high_s}
-
-              a > max_given_theta ->
-                {low_a, low_s, mid_a, mid_s, [a | high_a], [s | high_s]}
-
-              true ->
-                {low_a, low_s, [a | mid_a], [s | mid_s], high_a, high_s}
-            end
-          end)
+          split_lines(line_speeds, line_angles, min_given_theta, max_given_theta)
 
         build_line_segment = fn r, theta, stroke_dash ->
           {%{
@@ -439,4 +395,57 @@ defmodule NauticNetWeb.SailboatPolarsLive do
   end
 
   defp lerp(start, stop, t), do: start + (stop - start) * t
+
+  defp split_lines(line_speeds, line_angles, min_given_theta, max_given_theta) do
+    Enum.zip_reduce(line_speeds, line_angles, {[], [], [], [], [], []}, fn s,
+                                                                           a,
+                                                                           {low_a, low_s, mid_a,
+                                                                            mid_s, high_a,
+                                                                            high_s} ->
+      cond do
+        a < min_given_theta ->
+          {[a | low_a], [s | low_s], mid_a, mid_s, high_a, high_s}
+
+        a > max_given_theta ->
+          {low_a, low_s, mid_a, mid_s, [a | high_a], [s | high_s]}
+
+        true ->
+          {low_a, low_s, [a | mid_a], [s | mid_s], high_a, high_s}
+      end
+    end)
+  end
+
+  defp opt_data_by_tws(run_beat_polars) do
+    Map.new(run_beat_polars, fn %{
+                                  tws: tws,
+                                  beat_boat_speed: beat_boat_speed,
+                                  beat_twa: beat_twa,
+                                  run_boat_speed: run_boat_speed,
+                                  run_twa: run_twa
+                                } ->
+      values = [
+        beat_boat_speed * :math.cos(@deg2rad * beat_twa),
+        beat_twa,
+        abs(run_boat_speed * :math.cos(@deg2rad * run_twa)),
+        run_twa
+      ]
+
+      {round(tws), values}
+    end)
+  end
+
+  defp csv_body_rows_by_tws(tws, models_by_tws, df_cols, desired_angles_t) do
+    Enum.map(tws, fn k ->
+      values =
+        case df_cols[to_string(k)] do
+          nil ->
+            models_by_tws |> Interpolation.predict_new_tws(k, desired_angles_t) |> Nx.to_list()
+
+          val ->
+            val
+        end
+
+      {k, to_string(k) <> "," <> Enum.map_join(values, ",", &float2str/1)}
+    end)
+  end
 end

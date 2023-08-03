@@ -9,6 +9,7 @@ defmodule NauticNet.SailboatPolars.Interpolation do
   import Nx.Constants
 
   alias Scholar.Interpolation.BezierSpline
+  alias Scholar.Interpolation.Linear
 
   defn fit(theta, r) do
     # sort inputs based on theta
@@ -21,12 +22,12 @@ defmodule NauticNet.SailboatPolars.Interpolation do
 
     # Fit {0, 0} and {cutoff_theta, dy} as points for the linear "extrapolation"
     lower_linear_model =
-      Scholar.Interpolation.Linear.fit(
+      Linear.fit(
         Nx.stack([0, theta[0], theta[1]]),
         Nx.stack([0, r[0], r[1]])
       )
 
-    upper_linear_model = Scholar.Interpolation.Linear.fit(theta[-2..-1], r[-2..-1])
+    upper_linear_model = Linear.fit(theta[-2..-1], r[-2..-1])
 
     low_cutoff_theta = Nx.new_axis(theta[0], 0)
     top_cutoff_theta = Nx.new_axis(theta[-1], 0)
@@ -46,8 +47,8 @@ defmodule NauticNet.SailboatPolars.Interpolation do
     # because the interpolation is only valid for [0, pi]
     theta = Nx.select(theta > pi(), 2 * pi() - theta, theta)
 
-    low_linear_pred = Scholar.Interpolation.Linear.predict(lower_linear_model, theta)
-    top_linear_pred = Scholar.Interpolation.Linear.predict(upper_linear_model, theta)
+    low_linear_pred = Linear.predict(lower_linear_model, theta)
+    top_linear_pred = Linear.predict(upper_linear_model, theta)
     spline_pred = BezierSpline.predict(spline_model, theta)
 
     low_continuation = Nx.select(theta <= low_cutoff_theta, low_linear_pred, spline_pred)
