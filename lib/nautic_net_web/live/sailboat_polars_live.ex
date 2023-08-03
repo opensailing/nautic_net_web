@@ -56,6 +56,10 @@ defmodule NauticNetWeb.SailboatPolarsLive do
 
     socket =
       assign(socket,
+        first_load: true,
+        sailboat_polars: [],
+        run_beat_polars: [],
+        interpolation_by_tws: [],
         csv_changeset: csv_changeset(%{}, []),
         rendered_csv: "",
         export_csv: %{},
@@ -65,15 +69,6 @@ defmodule NauticNetWeb.SailboatPolarsLive do
         plot_title: "Boat Speed (kts) [#{sku} - Spinnaker]"
       )
 
-    socket =
-      if sku != "" do
-        {polars_df, run_beat_df} = SailboatPolars.load_from_url(sku, sail_kind)
-
-        load(socket, polars_df, run_beat_df)
-      else
-        assign(socket, sailboat_polars: [], run_beat_polars: [], interpolation_by_tws: [])
-      end
-
     {:ok, socket}
   end
 
@@ -82,6 +77,20 @@ defmodule NauticNetWeb.SailboatPolarsLive do
     |> Ecto.Changeset.cast(params, [:sku, :sail_kind])
     |> Ecto.Changeset.validate_required(required_fields)
     |> Ecto.Changeset.validate_inclusion(:sail_kind, ~w(spin nonspin))
+  end
+
+  def handle_event("mounted", _, socket) do
+    socket =
+      if socket.assigns.sku != "" do
+        {polars_df, run_beat_df} =
+          SailboatPolars.load_from_url(socket.assigns.sku, socket.assigns.sail_kind)
+
+        load(socket, polars_df, run_beat_df)
+      else
+        socket
+      end
+
+    {:noreply, assign(socket, first_load: false)}
   end
 
   def handle_event("validate_process_csv", form_data, socket) do
