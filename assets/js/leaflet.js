@@ -80,6 +80,8 @@ const CustomIconMarker = L.CircleMarker.extend({
   },
 });
 
+const boatIcon = new Leaflet.Icon({ iconUrl: '/images/boat.svg', iconSize: [40, 40] });
+
 class BoatView {
   boatId = null;
   map = null;
@@ -91,7 +93,7 @@ class BoatView {
     this.boatId = boatId;
     this.map = map;
     this.trackCoordinates = trackCoordinates;
-    this.marker = Leaflet.marker([0, 0]).addTo(map);
+    this.marker = Leaflet.marker([0, 0], { icon: boatIcon }).addTo(map);
     this.polyline = Leaflet.polyline([], { color: trackColor }).addTo(map);
   }
 
@@ -105,7 +107,7 @@ class BoatView {
     }
   }
 
-  setTime(startTime, endTime, inspectTime) {
+  setTime(startTime, _endTime, inspectTime) {
     const newCoords = this.trackCoordinates.filter(
       (c) => c.time >= startTime && c.time <= inspectTime
     );
