@@ -72,6 +72,15 @@ defmodule NauticNetWeb.SailboatPolarsLive do
     {:ok, socket}
   end
 
+  def handle_params(params, _url, socket) do
+    socket =
+      socket
+      |> assign(sku: params["sku"])
+      |> assign(sail_kind: params["sail_kind"])
+
+    {:noreply, socket}
+  end
+
   defp csv_changeset(params, required_fields \\ [:sku, :sail_kind]) do
     {%{}, %{sku: :string, sail_kind: :string}}
     |> Ecto.Changeset.cast(params, [:sku, :sail_kind])
@@ -119,6 +128,10 @@ defmodule NauticNetWeb.SailboatPolarsLive do
 
         sail = if form_data.sail_kind == "spin", do: "Spinnaker", else: "Non-Spinnaker"
 
+        query_params =
+          %{sku: form_data.sku, sail_kind: form_data.sail_kind}
+          |> Plug.Conn.Query.encode()
+
         socket =
           socket
           |> assign(
@@ -127,6 +140,7 @@ defmodule NauticNetWeb.SailboatPolarsLive do
             plot_title: "Boat Speed (kts) [#{form_data.sku} - #{sail}]"
           )
           |> load(polars_df, run_beat_df)
+          |> push_patch(to: "/polars?#{query_params}", replace: true)
 
         # do something
         {:noreply, socket}
