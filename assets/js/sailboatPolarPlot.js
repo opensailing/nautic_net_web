@@ -16,6 +16,7 @@ const SailboatPolarPlotHook = {
           compiled: false,
           editor: false,
         },
+        downloadFileName: "polar_plot"
       });
     });
   },

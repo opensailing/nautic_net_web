@@ -19,9 +19,6 @@ defmodule NauticNet.SailboatPolars.Interpolation do
     # this assumes theta's domain is [0deg, 180deg]
     spline_model = BezierSpline.fit(theta, r)
 
-    # use the tail-end of the spline prediction as part of our linear model
-    dt = 5 * pi() / 180
-
     # Fit {0, 0} and {cutoff_theta, dy} as points for the linear "extrapolation"
     lower_linear_model =
       Scholar.Interpolation.Linear.fit(
