@@ -76,7 +76,7 @@ defmodule NauticNet.SailboatPolars do
     opt_df_indices =
       df_data["row_names"]
       |> Enum.with_index()
-      |> Enum.filter(fn {row, idx} ->
+      |> Enum.filter(fn {row, _idx} ->
         row in ["Opt Run Angle", "Run VMG", "Beat VMG", "Opt Beat Angle"]
       end)
       |> Enum.map(&elem(&1, 1))
@@ -86,7 +86,7 @@ defmodule NauticNet.SailboatPolars do
         {opt_df_data, df_data} =
           data
           |> Enum.with_index()
-          |> Enum.split_with(fn {x, idx} ->
+          |> Enum.split_with(fn {_x, idx} ->
             idx in opt_df_indices
           end)
 

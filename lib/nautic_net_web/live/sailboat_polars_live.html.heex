@@ -2,8 +2,8 @@
   <div style="display: grid; grid-template-columns: 1fr 1fr 1fr">
     <div />
     <.simple_form :let={f} for={@csv_changeset} as={:csv_form} phx-change="validate_process_csv" phx-submit="process_csv">
-      <.input name="sku" field={{f, :sky}} label="SKU" value="h-2-2023-11133-7929-0-579" />
-      <.input name="sail_kind" value={"spin"} field={{f, :sail_kind}} label="Sail Kind" type="select" options={["Spinnaker": "spin", "Non-Spinnaker": "nonspin"]} />
+      <.input name="sku" field={{f, :sky}} label="SKU" value={@sku} />
+      <.input name="sail_kind" value={@sail_kind} field={{f, :sail_kind}} label="Sail Kind" type="select" options={["Spinnaker": "spin", "Non-Spinnaker": "nonspin"]} />
       <:actions>
         <.button>Process CSV</.button>
       </:actions>
@@ -48,7 +48,8 @@
         </:actions>
       </.simple_form>
       <.simple_form :let={f} as={:export_csv} phx-submit="export_csv">
-        <.input id="csv-container" field={{f, :csv}} name="csv" label="Rendered CSV" type="textarea" value={@rendered_csv} readonly />
+        <.input id="csv-container" field={{f, :csv}} label="Rendered CSV" type="textarea" value={@rendered_csv} readonly />
+        <.input field={{f, :additional_tws}} label="Additional TWS" type="text" value={@export_csv["additional_tws"]} placeholder="Additional values for interpolation" />
         <:actions>
           <.button>Export as CSV</.button>
         </:actions>

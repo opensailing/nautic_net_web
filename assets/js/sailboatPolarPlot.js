@@ -8,7 +8,15 @@ const SailboatPolarPlotHook = {
       console.log(params);
       const spec = JSON.parse(params.json_spec);
       console.log(spec);
-      embed(`#${divElement.id}`, spec, { width: 1000, height: 1000 });
+      embed(`#${divElement.id}`, spec, {
+        renderer: "svg",
+        actions: {
+          export: { svg: true, png: true },
+          source: false,
+          compiled: false,
+          editor: false,
+        },
+      });
     });
   },
 };

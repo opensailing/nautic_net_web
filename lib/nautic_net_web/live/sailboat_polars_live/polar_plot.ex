@@ -8,6 +8,7 @@ defmodule NauticNetWeb.SailboatPolarsLive.PolarPlot do
         :width,
         :color,
         :radius_marks,
+        :title,
         angle_marks: [0, 90, 180, 270],
         theta_offset: 0,
         opacity: 0.5,
@@ -20,7 +21,11 @@ defmodule NauticNetWeb.SailboatPolarsLive.PolarPlot do
     grid_layers = angle_layers(opts)
     radius_layers = radius_layers(opts)
 
-    Vl.new(height: height, width: width)
+    Vl.new(
+      height: height,
+      width: width,
+      title: [text: opts[:title], align: "center", anchor: "middle", font_size: 25]
+    )
     |> Vl.data_from_values(%{_r: [1]})
     |> Vl.layers(grid_layers ++ radius_layers)
   end
@@ -112,18 +117,22 @@ defmodule NauticNetWeb.SailboatPolarsLive.PolarPlot do
     max_radius = Enum.max(radius_marks)
 
     Vl.new()
-    |> Vl.config(style: [cell: [stroke: "transparent"]])
+    |> Vl.config(
+      style: [cell: [stroke: "transparent"]],
+      legend: [
+        label_font_size: "20",
+        title_font_size: "24",
+        disable: false,
+        symbol_type: "stroke",
+        symbol_stroke_width: 12,
+        symbol_size: 100
+      ]
+    )
     |> Vl.layers([
       vl
-      | for {r_in, theta_in, mark, mark_opts} <- data do
-          grouping = mark_opts[:grouping]
-
+      | for {data, mark, mark_opts} <- data do
           Vl.new()
-          |> Vl.data_from_values(%{
-            :r => r_in,
-            :theta => theta_in,
-            legend_name => List.duplicate(grouping, length(theta_in))
-          })
+          |> Vl.data_from_values(data)
           |> Vl.transform(calculate: "datum.r * cos(datum.theta * #{pi / 180})", as: "x_linear")
           |> Vl.transform(calculate: "datum.r * sin(datum.theta * #{pi / 180})", as: "y_linear")
           |> Vl.transform(
@@ -137,7 +146,14 @@ defmodule NauticNetWeb.SailboatPolarsLive.PolarPlot do
             as: "y"
           )
           |> Vl.mark(mark, mark_opts)
-          |> Vl.encode_field(:color, legend_name, type: :nominal, scale: [scheme: "viridis"])
+          |> Vl.encode_field(:color, legend_name, type: :nominal, scale: [scheme: "turbo"])
+          |> then(fn vl ->
+            if Map.has_key?(data, "stroke_dash") or Map.has_key?(data, :stroke_dash) do
+              Vl.encode_field(vl, :stroke_dash, "stroke_dash", type: :quantitative)
+            else
+              vl
+            end
+          end)
           |> Vl.encode_field(:x, "y",
             type: :quantitative,
             scale: [
@@ -169,6 +185,12 @@ defmodule NauticNetWeb.SailboatPolarsLive.PolarPlot do
             ]
           )
           |> Vl.encode_field(:order, "theta")
+          |> Vl.encode(
+            :tooltip,
+            Enum.map(data, fn {field, _} ->
+              [field: to_string(field), type: :quantitative]
+            end)
+          )
         end
     ])
   end
