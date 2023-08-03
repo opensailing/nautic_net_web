@@ -80,7 +80,7 @@ const CustomIconMarker = L.CircleMarker.extend({
   },
 });
 
-const boatIcon = new Leaflet.Icon({ iconUrl: '/images/boat.svg', iconSize: [40, 40] });
+const boatIcon = new Leaflet.Icon({ iconUrl: '/images/boat.svg', iconSize: [40, 40], iconAnchor: [20, 20] });
 
 class BoatView {
   boatId = null;
