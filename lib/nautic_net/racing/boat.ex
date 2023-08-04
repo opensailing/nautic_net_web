@@ -24,4 +24,13 @@ defmodule NauticNet.Racing.Boat do
     |> validate_required([:name, :identifier, :serial])
     |> unique_constraint(:identifier)
   end
+
+  @doc """
+  Changeset for user updates to boat preferences.
+  """
+  def user_changeset(boat, attrs) do
+    boat
+    |> cast(attrs, [:name, :serial])
+    |> validate_required([:name, :serial])
+  end
 end

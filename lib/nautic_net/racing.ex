@@ -99,4 +99,18 @@ defmodule NauticNet.Racing do
       }
     end
   end
+
+  def get_boat!(id) do
+    Repo.get!(Boat, id)
+  end
+
+  def change_boat(boat, params \\ %{}) do
+    Boat.user_changeset(boat, params)
+  end
+
+  def update_boat(boat, params \\ %{}) do
+    boat
+    |> Boat.user_changeset(params)
+    |> Repo.update()
+  end
 end
