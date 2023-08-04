@@ -23,6 +23,7 @@ defmodule NauticNetWeb.Router do
 
     live "/", MapLive
     live "/boats", BoatsLive
+    live "/boats/:id/edit", BoatsLive.Edit
     live "/polars", SailboatPolarsLive
   end
 

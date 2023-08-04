@@ -1,0 +1,17 @@
+<h2 class="text-xl mb-4">Edit boat <%= @boat.name %></h2>
+
+<.form :let={f} for={to_form(@changeset)} phx-change="validate" phx-submit="save">
+  <div class="mb-4">
+    <.input field={{f, :identifier}} label="Hardware Identifier" disabled={true} />
+  </div>
+  <div class="mb-4">
+    <.input field={{f, :name}} label="Name" />
+  </div>
+  <div class="mb-4">
+    <.input field={{f, :serial}} label="Serial Number" />
+  </div>
+
+  <.button disabled={not @changeset.valid?}>Save</.button>
+</.form>
+
+<.back navigate={~p"/boats"}>Back to boats</.back>
