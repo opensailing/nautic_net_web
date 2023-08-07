@@ -39,5 +39,9 @@ npm-debug.log
 /priv/plts/*.plt
 /priv/plts/*.plt.hash
 
+/priv/static/favicon-*
+/priv/static/images/phoenix-*
+/priv/static/robots*
+
 /tmp/
 /.iex.exs

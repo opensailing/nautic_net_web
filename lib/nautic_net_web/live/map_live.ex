@@ -1,12 +1,12 @@
 defmodule NauticNetWeb.MapLive do
   use NauticNetWeb, :live_view
 
-  alias Phoenix.PubSub
   alias NauticNet.LocalDate
   alias NauticNet.Playback
   alias NauticNet.Playback.Channel
   alias NauticNet.Playback.Signal
   alias NauticNet.Racing.Boat
+  alias Phoenix.PubSub
 
   require Logger
 

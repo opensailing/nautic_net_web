@@ -4,10 +4,10 @@ defmodule NauticNet.Seeds do
   """
   import Ecto.Query
 
-  alias NauticNet.Racing
-  alias NauticNet.Racing.Boat
   alias NauticNet.Data.Sample
   alias NauticNet.Data.Sensor
+  alias NauticNet.Racing
+  alias NauticNet.Racing.Boat
   alias NauticNet.Repo
 
   def run do
