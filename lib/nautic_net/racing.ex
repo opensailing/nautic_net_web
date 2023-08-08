@@ -32,7 +32,8 @@ defmodule NauticNet.Racing do
   def get_or_create_boat_by_identifier(identifier, preloads \\ []) do
     case Repo.get_by(Boat, identifier: identifier) do
       nil ->
-        {:ok, boat} = create_boat(%{name: identifier, identifier: identifier})
+        {:ok, boat} = create_boat(%{name: identifier, identifier: identifier, serial: "UNKNOWN"})
+
         boat
 
       %Boat{} = boat ->
