@@ -282,11 +282,16 @@ const LeafletHook = {
             this.pushEvent("set_position", {
               position,
               zoom_level: map.getZoom(),
+              play: play
             });
           }
         }, 1000 / speed);
 
         this.timeoutHandler = timeoutHandler;
+      }else{
+        this.pushEvent("set_position", {
+          play: play
+        });
       }
     });
 

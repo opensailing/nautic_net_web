@@ -61,6 +61,7 @@ defmodule NauticNetWeb.MapLive do
       |> assign(:needs_centering?, true)
       |> assign(:bounding_box, @default_bounding_box)
       |> assign(:zoom_level, 15)
+      |> assign(:play, false)
 
       # Timeline
       |> select_date(params)
@@ -455,6 +456,7 @@ defmodule NauticNetWeb.MapLive do
     socket
     |> assign(:signals, new_signals)
     |> assign(:inspect_at, new_inspect_at)
+    |> assign(:play, params["play"])
     |> push_map_state()
     |> push_patch(to: "/?#{query_params}", replace: true)
   end
