@@ -108,6 +108,12 @@ defmodule NauticNetWeb.MapLive do
 
   def handle_event("inc_playback_speed", _params, socket) do
     speed = socket.assigns.playback_speed * 2
+    speed =
+      if speed <= 512 do
+        speed
+      else
+        socket.assigns.playback_speed
+      end
 
     query_params =
       %{
@@ -130,6 +136,12 @@ defmodule NauticNetWeb.MapLive do
 
   def handle_event("dec_playback_speed", _params, socket) do
     speed = (socket.assigns.playback_speed / 2) |> round()
+    speed =
+      if speed >= 1 do
+        speed
+      else
+        socket.assigns.playback_speed
+      end
 
     query_params =
       %{
