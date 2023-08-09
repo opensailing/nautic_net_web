@@ -69,7 +69,7 @@
 <div>Inspect <%= format_time(@inspect_at) %></div>
 
 <div class="my-4">
-  <.button phx-click="dec_playback_speed">
+  <.button phx-click="dec_playback_speed" class={if @playback_speed == 1, do: "bg-red-900 hover:bg-red-700"}>
     <svg
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
@@ -120,7 +120,7 @@
       </svg>
     </.button>
   <% end %>
-  <.button phx-click="inc_playback_speed">
+  <.button phx-click="inc_playback_speed" class={if @playback_speed == 32, do: "bg-red-900 hover:bg-red-700"}>
     <svg
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
