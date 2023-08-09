@@ -112,7 +112,7 @@ defmodule NauticNetWeb.MapLive do
   end
 
   def handle_event("dec_playback_speed", _params, socket) do
-    speed = socket.assigns.playback_speed / 2 |> round()
+    speed = (socket.assigns.playback_speed / 2) |> round()
 
     {:noreply, assign(socket, playback_speed: speed)}
   end

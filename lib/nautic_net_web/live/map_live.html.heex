@@ -69,10 +69,18 @@
 <div>Inspect <%= format_time(@inspect_at) %></div>
 
 <div class="my-4 border rounded-lg px-4 py-2">
-  <h3>Playback Speed</h3>
-  <.button phx-click="dec_playback_speed">Slow</.button>
-  <input id="playback_speed" class="text-center" style="width:50px" value={@playback_speed} disabled />
-  <.button phx-click="inc_playback_speed">Fast</.button>
+  <div class="flex items-center gap-4 mb-2">
+    <h3 class="text-xl font-semibold">Playback Speed</h3>
+    <.button phx-click="dec_playback_speed">Slow</.button>
+    <input
+      id="playback_speed"
+      class="text-center"
+      style="width:50px"
+      value={@playback_speed}
+      disabled
+    />
+    <.button phx-click="inc_playback_speed">Fast</.button>
+  </div>
 </div>
 
 <table>
