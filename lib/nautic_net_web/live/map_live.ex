@@ -61,7 +61,6 @@ defmodule NauticNetWeb.MapLive do
       |> assign(:needs_centering?, true)
       |> assign(:bounding_box, @default_bounding_box)
       |> assign(:zoom_level, 15)
-      |> assign(:playback_speed, 1)
 
       # Timeline
       |> select_date(params)
@@ -76,6 +75,7 @@ defmodule NauticNetWeb.MapLive do
       |> assign(from: params["from"])
       |> assign(to: params["to"])
       |> assign(playback: params["playback"])
+      |> assign(speed: params["speed"])
       |> assign(boats: selected_boats(params["boats"]))
 
     {:noreply, socket}
@@ -108,13 +108,45 @@ defmodule NauticNetWeb.MapLive do
   def handle_event("inc_playback_speed", _params, socket) do
     speed = socket.assigns.playback_speed * 2
 
-    {:noreply, assign(socket, playback_speed: speed)}
+    query_params =
+      %{
+        date: socket.assigns.date,
+        from: to_time(socket.assigns.range_start_at),
+        to: to_time(socket.assigns.range_end_at),
+        playback: to_time(socket.assigns.inspect_at),
+        speed: speed,
+        boats: socket.assigns.boats
+      }
+      |> Plug.Conn.Query.encode()
+
+    socket =
+      socket
+      |> assign(playback_speed: speed)
+      |> push_patch(to: "/?#{query_params}", replace: true)
+
+    {:noreply, socket}
   end
 
   def handle_event("dec_playback_speed", _params, socket) do
     speed = (socket.assigns.playback_speed / 2) |> round()
 
-    {:noreply, assign(socket, playback_speed: speed)}
+    query_params =
+      %{
+        date: socket.assigns.date,
+        from: to_time(socket.assigns.range_start_at),
+        to: to_time(socket.assigns.range_end_at),
+        playback: to_time(socket.assigns.inspect_at),
+        speed: speed,
+        boats: socket.assigns.boats
+      }
+      |> Plug.Conn.Query.encode()
+
+    socket =
+      socket
+      |> assign(playback_speed: speed)
+      |> push_patch(to: "/?#{query_params}", replace: true)
+
+    {:noreply, socket}
   end
 
   def handle_event("update_range", %{"min" => min, "max" => max}, socket) do
@@ -127,6 +159,7 @@ defmodule NauticNetWeb.MapLive do
         from: to_time(range_start_at),
         to: to_time(range_end_at),
         playback: to_time(socket.assigns.inspect_at),
+        speed: socket.assigns.playback_speed,
         boats: socket.assigns.boats
       }
       |> Plug.Conn.Query.encode()
@@ -165,6 +198,7 @@ defmodule NauticNetWeb.MapLive do
         from: socket.assigns.from,
         to: socket.assigns.to,
         playback: socket.assigns.playback,
+        speed: socket.assigns.playback_speed,
         boats: new_boats
       }
       |> Plug.Conn.Query.encode()
@@ -411,6 +445,7 @@ defmodule NauticNetWeb.MapLive do
         from: to_time(socket.assigns.range_start_at),
         to: to_time(socket.assigns.range_end_at),
         playback: to_time(new_inspect_at),
+        speed: socket.assigns.playback_speed,
         boats: socket.assigns.boats
       }
       |> Plug.Conn.Query.encode()
@@ -530,6 +565,16 @@ defmodule NauticNetWeb.MapLive do
     range_end_at = build_datetime(params["date"], params["to"], last_sample_at)
     playback = build_datetime(params["date"], params["playback"], DateTime.utc_now())
 
+    speed =
+      if is_nil(params["speed"]) do
+        1
+      else
+        case Integer.parse(params["speed"]) do
+          {s, _} -> s
+          _ -> 1
+        end
+      end
+
     first_position_signal = Enum.find(signals, &(&1.channel.type == :position))
 
     socket
@@ -546,6 +591,7 @@ defmodule NauticNetWeb.MapLive do
     |> assign(:to, range_end_at)
     |> assign(:inspect_at, playback)
     |> assign(:playback, playback)
+    |> assign(:playback_speed, speed)
     |> assign(:boats, selected_boats)
     |> constrain_inspect_at()
     # |> push_event("configure", %{
