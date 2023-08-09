@@ -258,12 +258,14 @@ const LeafletHook = {
       this.timeoutHandler && clearInterval(this.timeoutHandler);
 
       if (play) {
-        const fps = 30;
+        const playback_speed = window.document.getElementById("playback_speed");
+        const speed = parseInt(playback_speed.value)
 
         const timeoutHandler = setInterval(() => {
-          const posElement = window.document.getElementById("position");
-          const inc = 30;
+          
 
+          const posElement = window.document.getElementById("position");
+          
           if (!posElement) {
             clearInterval(timeoutHandler);
             return;
@@ -271,18 +273,18 @@ const LeafletHook = {
 
           if (
             parseInt(posElement.value) >=
-            parseInt(posElement.max) - (inc + 1)
+            parseInt(posElement.max) - (speed + 1)
           ) {
             clearInterval(timeoutHandler);
           } else {
-            posElement.stepUp(inc);
+            posElement.stepUp(speed);
             const position = posElement.value;
             this.pushEvent("set_position", {
               position,
               zoom_level: map.getZoom(),
             });
           }
-        }, 1000 / fps);
+        }, 1000 / speed);
 
         this.timeoutHandler = timeoutHandler;
       }

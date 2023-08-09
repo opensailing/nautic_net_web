@@ -68,6 +68,13 @@
 
 <div>Inspect <%= format_time(@inspect_at) %></div>
 
+<div class="my-4 border rounded-lg px-4 py-2">
+  <h3>Playback Speed</h3>
+  <.button phx-click="dec_playback_speed">Slow</.button>
+  <input id="playback_speed" value={@playback_speed} disabled />
+  <.button phx-click="inc_playback_speed">Fast</.button>
+</div>
+
 <table>
   <%= for %{channel: %{boat: boat}} = signal <- position_signals(@signals) do %>
     <tr>

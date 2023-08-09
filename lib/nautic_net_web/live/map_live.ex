@@ -61,6 +61,7 @@ defmodule NauticNetWeb.MapLive do
       |> assign(:needs_centering?, true)
       |> assign(:bounding_box, @default_bounding_box)
       |> assign(:zoom_level, 15)
+      |> assign(:playback_speed, 1)
 
       # Timeline
       |> select_date(params)
@@ -102,6 +103,18 @@ defmodule NauticNetWeb.MapLive do
      socket
      |> assign(:tracks_visible?, not value)
      |> push_event("toggle_track", %{value: not value})}
+  end
+
+  def handle_event("inc_playback_speed", _params, socket) do
+    speed = socket.assigns.playback_speed * 2
+
+    {:noreply, assign(socket, playback_speed: speed)}
+  end
+
+  def handle_event("dec_playback_speed", _params, socket) do
+    speed = socket.assigns.playback_speed / 2 |> round()
+
+    {:noreply, assign(socket, playback_speed: speed)}
   end
 
   def handle_event("update_range", %{"min" => min, "max" => max}, socket) do
