@@ -68,33 +68,7 @@
 
 <div>Inspect <%= format_time(@inspect_at) %></div>
 
-<table>
-  <%= for %{channel: %{boat: boat}} = signal <- position_signals(@signals) do %>
-    <tr>
-      <td>
-        <input
-          id={"boat-toggle-#{boat.id}"}
-          type="checkbox"
-          checked={signal.visible?}
-          phx-click="set_boat_visible"
-          phx-value-boat-id={boat.id}
-        />
-      </td>
-      <td>
-        <div class="w-3 h-3" style={"background-color: #{signal.color}"} />
-      </td>
-      <td>
-        <label for={"boat-toggle-#{boat.id}"} class="cursor-pointer">
-          <%= boat.name || boat.id %>
-        </label>
-      </td>
-    </tr>
-  <% end %>
-</table>
-
 <div class="my-4">
-  <.button phx-click="toggle_track"><%= if @tracks_visible?, do: "Hide", else: "Show" %></.button>
-  <.button :if={@tracks_visible?} phx-click="clear">Clear</.button>
   <.button phx-click="dec_playback_speed">
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -170,11 +144,40 @@
     <input
       id="playback_speed"
       class="text-center"
-      style="width:2rem"
+      style="width:1.5rem"
       value={@playback_speed}
       disabled
     />x
   </div>
+</div>
+
+<table>
+  <%= for %{channel: %{boat: boat}} = signal <- position_signals(@signals) do %>
+    <tr>
+      <td>
+        <input
+          id={"boat-toggle-#{boat.id}"}
+          type="checkbox"
+          checked={signal.visible?}
+          phx-click="set_boat_visible"
+          phx-value-boat-id={boat.id}
+        />
+      </td>
+      <td>
+        <div class="w-3 h-3" style={"background-color: #{signal.color}"} />
+      </td>
+      <td>
+        <label for={"boat-toggle-#{boat.id}"} class="cursor-pointer">
+          <%= boat.name || boat.id %>
+        </label>
+      </td>
+    </tr>
+  <% end %>
+</table>
+
+<div class="my-4">
+  <.button phx-click="toggle_track"><%= if @tracks_visible?, do: "Hide", else: "Show" %></.button>
+  <.button :if={@tracks_visible?} phx-click="clear">Clear</.button>
 </div>
 
 <div class="my-4 border rounded-lg px-4 py-2">

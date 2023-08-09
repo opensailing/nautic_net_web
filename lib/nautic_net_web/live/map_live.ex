@@ -110,7 +110,7 @@ defmodule NauticNetWeb.MapLive do
     speed = socket.assigns.playback_speed * 2
 
     speed =
-      if speed <= 512 do
+      if speed <= 32 do
         speed
       else
         socket.assigns.playback_speed
