@@ -254,16 +254,15 @@ const LeafletHook = {
       polyline.setLatLngs(trackCoordinates.slice(0, position));
     });
 
-    window.addEventListener("animateTime", ({ detail: { play } }) => {
+    window.addEventListener("animateTime", ({ detail: { play, speed } }) => {
       this.timeoutHandler && clearInterval(this.timeoutHandler);
+    
+      var speed = parseInt(speed);
+      if (speed < 1) { speed = 1 }
+      if (speed > 32) { speed = 32 }
 
       if (play) {
-        const playback_speed = window.document.getElementById("playback_speed");
-        const speed = parseInt(playback_speed.value)
-
         const timeoutHandler = setInterval(() => {
-          
-
           const posElement = window.document.getElementById("position");
           
           if (!posElement) {
