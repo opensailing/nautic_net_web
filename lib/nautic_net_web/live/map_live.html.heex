@@ -70,7 +70,14 @@
 
 <div class="my-4">
   <.button
-    phx-click="dec_playback_speed"
+    phx-click={
+      "dec_playback_speed"
+      |> Phoenix.LiveView.JS.push()
+      |> Phoenix.LiveView.JS.dispatch("animateTime",
+        detail: %{play: @play, speed: @playback_speed / 2},
+        to: "#map"
+      )
+    }
     class={if @playback_speed == 1, do: "bg-red-900 hover:bg-red-700"}
   >
     <svg
@@ -90,7 +97,10 @@
   </.button>
   <%= if @play do %>
     <.button phx-click={
-      Phoenix.LiveView.JS.dispatch("animateTime", detail: %{play: false}, to: "#map")
+      Phoenix.LiveView.JS.dispatch("animateTime",
+        detail: %{play: false, speed: @playback_speed},
+        to: "#map"
+      )
     }>
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -105,7 +115,10 @@
     </.button>
   <% else %>
     <.button phx-click={
-      Phoenix.LiveView.JS.dispatch("animateTime", detail: %{play: true}, to: "#map")
+      Phoenix.LiveView.JS.dispatch("animateTime",
+        detail: %{play: true, speed: @playback_speed},
+        to: "#map"
+      )
     }>
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -124,7 +137,14 @@
     </.button>
   <% end %>
   <.button
-    phx-click="inc_playback_speed"
+    phx-click={
+      "inc_playback_speed"
+      |> Phoenix.LiveView.JS.push()
+      |> Phoenix.LiveView.JS.dispatch("animateTime",
+        detail: %{play: @play, speed: @playback_speed * 2},
+        to: "#map"
+      )
+    }
     class={if @playback_speed == 32, do: "bg-red-900 hover:bg-red-700"}
   >
     <svg
