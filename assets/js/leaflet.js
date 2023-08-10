@@ -257,7 +257,7 @@ const LeafletHook = {
     window.addEventListener("animateTime", ({ detail: { play, speed } }) => {
       this.timeoutHandler && clearInterval(this.timeoutHandler);
     
-      let speed = parseInt(speed);
+      var speed = parseInt(speed);
       if (speed < 1) { speed = 1 }
       if (speed > 32) { speed = 32 }
 
