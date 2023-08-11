@@ -80,7 +80,23 @@ const CustomIconMarker = L.CircleMarker.extend({
   },
 });
 
-const boatIcon = new Leaflet.Icon({ iconUrl: '/images/boat.svg', iconSize: [40, 40], iconAnchor: [20, 20] });
+function setSVG(trackColor) {
+  var xmlns = "http://www.w3.org/2000/svg";
+  var svgElem = document.createElementNS(xmlns, "svg");
+  svgElem.setAttributeNS(null, "viewBox", "0 0 56 56");
+  svgElem.setAttributeNS(null, "width", 56);
+  svgElem.setAttributeNS(null, "height", 56);
+  svgElem.style.display = "block";
+
+  var path = document.createElementNS(xmlns, "path");
+  path.setAttributeNS(null, "d", "M20.3826 55C19.3907 52.4191 17.7045 44.5573 18.0446 33.7574C18.3936 22.6734 24.5958 6.45906 29.4777 1.04911V1C29.4851 1.00814 29.4926 1.0163 29.5 1.02449C29.5074 1.0163 29.5149 1.00814 29.5223 1V1.04911C34.4042 6.45906 40.6064 22.6734 40.9554 33.7574C41.2955 44.5573 39.6093 52.4191 38.6174 55H20.3826Z");
+  path.setAttributeNS(null, "fill", trackColor);
+  path.setAttributeNS(null, "stroke", "white");
+  path.setAttributeNS(null, "stroke-width", 2);
+  svgElem.appendChild(path);
+
+  return svgElem;
+}
 
 class BoatView {
   boatId = null;
@@ -90,10 +106,14 @@ class BoatView {
   trackCoordinates = [];
 
   constructor(map, boatId, trackCoordinates, trackColor) {
+    const svg = setSVG(trackColor);
+    const boatIcon = Leaflet.divIcon({ className: boatId, iconAnchor: [20, 20] });
+
     this.boatId = boatId;
     this.map = map;
     this.trackCoordinates = trackCoordinates;
     this.marker = Leaflet.marker([0, 0], { icon: boatIcon }).addTo(map);
+    this.marker._icon.append(svg);
     this.polyline = Leaflet.polyline([], { color: trackColor }).addTo(map);
   }
 
