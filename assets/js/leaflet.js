@@ -107,7 +107,7 @@ class BoatView {
 
   constructor(map, boatId, trackCoordinates, trackColor) {
     const svg = setSVG(trackColor);
-    const boatIcon = Leaflet.divIcon({ className: boatId, iconAnchor: [20, 20] });
+    const boatIcon = Leaflet.divIcon({ className: boatId, iconAnchor: [28, 28] });
 
     this.boatId = boatId;
     this.map = map;
