@@ -10,6 +10,14 @@
   <div class="mb-4">
     <.input field={{f, :serial}} label="Serial Number" />
   </div>
+  <div class="mb-4">
+    <.input
+      field={{f, :primary_position_sensor_id}}
+      label="Primary Location Sensor"
+      type="select"
+      options={location_sensor_options(@location_sensors)}
+    />
+  </div>
 
   <.button disabled={not @changeset.valid?}>Save</.button>
 </.form>

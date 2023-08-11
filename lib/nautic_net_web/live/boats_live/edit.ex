@@ -7,7 +7,9 @@ defmodule NauticNetWeb.BoatsLive.Edit do
     boat = Racing.get_boat!(id)
     changeset = Racing.change_boat(boat)
 
-    socket = assign(socket, boat: boat, changeset: changeset)
+    location_sensors = Racing.list_location_sensors(boat)
+
+    socket = assign(socket, boat: boat, changeset: changeset, location_sensors: location_sensors)
 
     {:ok, socket}
   end
@@ -38,5 +40,9 @@ defmodule NauticNetWeb.BoatsLive.Edit do
       end
 
     {:noreply, socket}
+  end
+
+  defp location_sensor_options(sensors) do
+    [{"None", ""}] ++ Enum.map(sensors, fn s -> {s.name, s.id} end)
   end
 end
