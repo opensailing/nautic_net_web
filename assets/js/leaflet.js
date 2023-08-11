@@ -1,5 +1,6 @@
 import Leaflet from "leaflet";
 import "leaflet-canvas-markers";
+import "leaflet-rotatedmarker";
 import { GeoData } from "./geodata_pb.js";
 
 const colorArrayToRgb = ([r, g, b]) => `rgb(${r}, ${g}, ${b})`;
@@ -49,7 +50,7 @@ const drawArrowIcon = (ctx, speed, width, height) => {
 };
 
 L.Canvas.include({
-  _updateCustomIconMarker: function (layer) {
+  _updateCustomIconMarker: function(layer) {
     if (!this._drawing || layer._empty()) {
       return;
     }
@@ -74,10 +75,28 @@ L.Canvas.include({
 });
 
 const CustomIconMarker = L.CircleMarker.extend({
-  _updatePath: function () {
+  _updatePath: function() {
     this._renderer._updateCustomIconMarker(this);
   },
 });
+
+function setSVG(trackColor) {
+  var xmlns = "http://www.w3.org/2000/svg";
+  var svgElem = document.createElementNS(xmlns, "svg");
+  svgElem.setAttributeNS(null, "viewBox", "0 0 56 56");
+  svgElem.setAttributeNS(null, "width", 30);
+  svgElem.setAttributeNS(null, "height", 30);
+  svgElem.style.display = "block";
+
+  var path = document.createElementNS(xmlns, "path");
+  path.setAttributeNS(null, "d", "M20.3826 55C19.3907 52.4191 17.7045 44.5573 18.0446 33.7574C18.3936 22.6734 24.5958 6.45906 29.4777 1.04911V1C29.4851 1.00814 29.4926 1.0163 29.5 1.02449C29.5074 1.0163 29.5149 1.00814 29.5223 1V1.04911C34.4042 6.45906 40.6064 22.6734 40.9554 33.7574C41.2955 44.5573 39.6093 52.4191 38.6174 55H20.3826Z");
+  path.setAttributeNS(null, "fill", trackColor);
+  path.setAttributeNS(null, "stroke", "white");
+  path.setAttributeNS(null, "stroke-width", 2);
+  svgElem.appendChild(path);
+
+  return svgElem;
+}
 
 class BoatView {
   boatId = null;
@@ -87,10 +106,14 @@ class BoatView {
   trackCoordinates = [];
 
   constructor(map, boatId, trackCoordinates, trackColor) {
+    const svg = setSVG(trackColor);
+    const boatIcon = Leaflet.divIcon({ className: boatId, iconAnchor: [15, 15] });
+
     this.boatId = boatId;
     this.map = map;
     this.trackCoordinates = trackCoordinates;
-    this.marker = Leaflet.marker([0, 0]).addTo(map);
+    this.marker = Leaflet.marker([0, 0], { icon: boatIcon }).addTo(map);
+    this.marker._icon.append(svg);
     this.polyline = Leaflet.polyline([], { color: trackColor }).addTo(map);
   }
 
@@ -104,7 +127,7 @@ class BoatView {
     }
   }
 
-  setTime(startTime, endTime, inspectTime) {
+  setTime(startTime, _endTime, inspectTime) {
     const newCoords = this.trackCoordinates.filter(
       (c) => c.time >= startTime && c.time <= inspectTime
     );
@@ -113,9 +136,7 @@ class BoatView {
     this.polyline.setLatLngs(newCoords.map((c) => [c.lat, c.lng]));
 
     if (lastCoord) {
-      this.marker.setLatLng([lastCoord.lat, lastCoord.lng]);
-
-      // TODO: Rotate marker based on lastCoord.heading_rad (CustomIconMarker)
+      this.marker.setLatLng([lastCoord.lat, lastCoord.lng]).setRotationAngle(lastCoord.heading_deg);
     }
   }
 
@@ -342,7 +363,7 @@ const LeafletHook = {
       });
 
       const layer = L.geoJSON(geojsonData, {
-        pointToLayer: function (feature, latlng) {
+        pointToLayer: function(feature, latlng) {
           const { direction, speed } = feature.properties;
 
           if (speed == 0) {
