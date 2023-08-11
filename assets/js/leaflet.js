@@ -275,16 +275,17 @@ const LeafletHook = {
       polyline.setLatLngs(trackCoordinates.slice(0, position));
     });
 
-    window.addEventListener("animateTime", ({ detail: { play } }) => {
+    window.addEventListener("animateTime", ({ detail: { play, speed } }) => {
       this.timeoutHandler && clearInterval(this.timeoutHandler);
+    
+      var speed = parseInt(speed);
+      if (speed < 1) { speed = 1 }
+      if (speed > 32) { speed = 32 }
 
       if (play) {
-        const fps = 30;
-
         const timeoutHandler = setInterval(() => {
           const posElement = window.document.getElementById("position");
-          const inc = 30;
-
+          
           if (!posElement) {
             clearInterval(timeoutHandler);
             return;
@@ -292,20 +293,25 @@ const LeafletHook = {
 
           if (
             parseInt(posElement.value) >=
-            parseInt(posElement.max) - (inc + 1)
+            parseInt(posElement.max) - (speed + 1)
           ) {
             clearInterval(timeoutHandler);
           } else {
-            posElement.stepUp(inc);
+            posElement.stepUp(speed);
             const position = posElement.value;
             this.pushEvent("set_position", {
               position,
               zoom_level: map.getZoom(),
+              play: play
             });
           }
-        }, 1000 / fps);
+        }, 1000 / speed);
 
         this.timeoutHandler = timeoutHandler;
+      }else{
+        this.pushEvent("set_position", {
+          play: play
+        });
       }
     });
 

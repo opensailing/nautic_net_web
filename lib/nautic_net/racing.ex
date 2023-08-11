@@ -32,7 +32,8 @@ defmodule NauticNet.Racing do
   def get_or_create_boat_by_identifier(identifier, preloads \\ []) do
     case Repo.get_by(Boat, identifier: identifier) do
       nil ->
-        {:ok, boat} = create_boat(%{name: identifier, identifier: identifier})
+        {:ok, boat} = create_boat(%{name: identifier, identifier: identifier, serial: "UNKNOWN"})
+
         boat
 
       %Boat{} = boat ->
@@ -97,5 +98,35 @@ defmodule NauticNet.Racing do
         recent_sample_count: Map.get(recent_sample_counts, boat.id, 0)
       }
     end
+  end
+
+  def get_boat!(id) do
+    Repo.get!(Boat, id)
+  end
+
+  def change_boat(boat, params \\ %{}) do
+    Boat.user_changeset(boat, params)
+  end
+
+  def update_boat(boat, params \\ %{}) do
+    boat
+    |> Boat.user_changeset(params)
+    |> Repo.update()
+  end
+
+  @doc """
+  Returns a list of all boat sensors that have provided position samples.
+  """
+  def list_location_sensors(boat) do
+    sensor_ids =
+      Sample
+      |> where([s], s.boat_id == ^boat.id and s.type == :position)
+      |> distinct([s], s.sensor_id)
+      |> select([s], s.sensor_id)
+      |> Repo.all()
+
+    Sensor
+    |> where([s], s.id in ^sensor_ids)
+    |> Repo.all()
   end
 end

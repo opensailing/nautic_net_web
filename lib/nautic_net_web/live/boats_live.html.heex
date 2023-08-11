@@ -8,4 +8,7 @@
   <:col :let={row} label="Active At"><%= row.boat.alive_at || "Never" %></:col>
   <:col :let={row} label="Sensors"><%= row.sensor_count %></:col>
   <:col :let={row} label="Samples"><%= row.sample_count %></:col>
+  <:col :let={row} label="Edit">
+    <.link navigate={~p"/boats/#{row.boat.id}/edit"}>Edit</.link>
+  </:col>
 </.table>

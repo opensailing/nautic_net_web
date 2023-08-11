@@ -18,15 +18,13 @@ defmodule NauticNetWeb.Router do
 
   scope "/", NauticNetWeb do
     pipe_through :browser
-  end
-
-  scope "/", NauticNetWeb do
-    pipe_through :browser
 
     get "/home", PageController, :home
 
     live "/", MapLive
     live "/boats", BoatsLive
+    live "/boats/:id/edit", BoatsLive.Edit
+    live "/polars", SailboatPolarsLive
   end
 
   scope "/api", NauticNetWeb.API do

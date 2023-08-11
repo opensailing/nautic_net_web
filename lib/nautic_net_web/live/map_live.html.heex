@@ -38,7 +38,9 @@
     phx-hook="RangeSliderHook"
     phx-update="ignore"
     data-min={DateTime.to_unix(@first_sample_at)}
+    data-from={DateTime.to_unix(@range_start_at)}
     data-max={DateTime.to_unix(@last_sample_at)}
+    data-to={DateTime.to_unix(@range_end_at)}
   />
   <div class="flex justify-between mt-2">
     <div>From <%= format_time(@range_start_at) %></div>
@@ -65,6 +67,115 @@
 </form>
 
 <div>Inspect <%= format_time(@inspect_at) %></div>
+
+<div class="my-4">
+  <.button
+    phx-click={
+      "dec_playback_speed"
+      |> Phoenix.LiveView.JS.push()
+      |> Phoenix.LiveView.JS.dispatch("animateTime",
+        detail: %{play: @play, speed: @playback_speed / 2},
+        to: "#map"
+      )
+    }
+    class={if @playback_speed == 1, do: "bg-red-900 hover:bg-red-700"}
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke-width="1.5"
+      stroke="currentColor"
+      class="w-6 h-6"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="M21 16.811c0 .864-.933 1.405-1.683.977l-7.108-4.062a1.125 1.125 0 010-1.953l7.108-4.062A1.125 1.125 0 0121 8.688v8.123zM11.25 16.811c0 .864-.933 1.405-1.683.977l-7.108-4.062a1.125 1.125 0 010-1.953L9.567 7.71a1.125 1.125 0 011.683.977v8.123z"
+      />
+    </svg>
+  </.button>
+  <%= if @play do %>
+    <.button phx-click={
+      Phoenix.LiveView.JS.dispatch("animateTime",
+        detail: %{play: false, speed: @playback_speed},
+        to: "#map"
+      )
+    }>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke-width="1.5"
+        stroke="currentColor"
+        class="w-6 h-6"
+      >
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
+      </svg>
+    </.button>
+  <% else %>
+    <.button phx-click={
+      Phoenix.LiveView.JS.dispatch("animateTime",
+        detail: %{play: true, speed: @playback_speed},
+        to: "#map"
+      )
+    }>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke-width="1.5"
+        stroke="currentColor"
+        class="w-6 h-6"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"
+        />
+      </svg>
+    </.button>
+  <% end %>
+  <.button
+    phx-click={
+      "inc_playback_speed"
+      |> Phoenix.LiveView.JS.push()
+      |> Phoenix.LiveView.JS.dispatch("animateTime",
+        detail: %{play: @play, speed: @playback_speed * 2},
+        to: "#map"
+      )
+    }
+    class={if @playback_speed == 32, do: "bg-red-900 hover:bg-red-700"}
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke-width="1.5"
+      stroke="currentColor"
+      class="w-6 h-6"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="M3 8.688c0-.864.933-1.405 1.683-.977l7.108 4.062a1.125 1.125 0 010 1.953l-7.108 4.062A1.125 1.125 0 013 16.81V8.688zM12.75 8.688c0-.864.933-1.405 1.683-.977l7.108 4.062a1.125 1.125 0 010 1.953l-7.108 4.062a1.125 1.125 0 01-1.683-.977V8.688z"
+      />
+    </svg>
+  </.button>
+</div>
+
+<div class="my-4 border rounded-lg px-4 py-2">
+  <div class="flex items-center gap-1 mb-2 pt-1">
+    <h3 class="text-sm font-semibold gap-4">Playback Speed</h3>
+    <input
+      id="playback_speed"
+      class="text-center"
+      style="width:1.5rem"
+      value={@playback_speed}
+      disabled
+    />x
+  </div>
+</div>
 
 <table>
   <%= for %{channel: %{boat: boat}} = signal <- position_signals(@signals) do %>
@@ -93,16 +204,6 @@
 <div class="my-4">
   <.button phx-click="toggle_track"><%= if @tracks_visible?, do: "Hide", else: "Show" %></.button>
   <.button :if={@tracks_visible?} phx-click="clear">Clear</.button>
-  <.button phx-click={
-    Phoenix.LiveView.JS.dispatch("animateTime", detail: %{play: true}, to: "#map")
-  }>
-    Start
-  </.button>
-  <.button phx-click={
-    Phoenix.LiveView.JS.dispatch("animateTime", detail: %{play: false}, to: "#map")
-  }>
-    Stop
-  </.button>
 </div>
 
 <div class="my-4 border rounded-lg px-4 py-2">

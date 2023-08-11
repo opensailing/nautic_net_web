@@ -51,7 +51,7 @@ defmodule NauticNet.MixProject do
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 0.18.3"},
       {:heroicons, "~> 0.5"},
-      {:floki, ">= 0.30.0", only: :test},
+      {:floki, ">= 0.30.0"},
       {:phoenix_live_dashboard, "~> 0.7.2"},
       {:esbuild, "~> 0.5", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.1.8", runtime: Mix.env() == :dev},
@@ -84,9 +84,12 @@ defmodule NauticNet.MixProject do
       # Visualizer
       {:netcdf, "~> 0.2.2"},
       {:exla, "~> 0.4"},
-      {:ex_cldr_calendars, "~> 1.21"},
       {:protobuf, "~> 0.10.0"},
-      {:rustler, ">= 0.0.0", optional: true},
+      {:rustler, "~> 0.29.0", optional: true, override: true},
+      {:explorer, "~> 0.6.1"},
+      {:nimble_csv, "~> 1.2.0"},
+      {:scholar, "~> 0.1"},
+      {:vega_lite, "~> 0.1.7"},
 
       # Timex
       {:timex, "~> 3.7.9"}
