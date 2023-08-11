@@ -84,8 +84,8 @@ function setSVG(trackColor) {
   var xmlns = "http://www.w3.org/2000/svg";
   var svgElem = document.createElementNS(xmlns, "svg");
   svgElem.setAttributeNS(null, "viewBox", "0 0 56 56");
-  svgElem.setAttributeNS(null, "width", 56);
-  svgElem.setAttributeNS(null, "height", 56);
+  svgElem.setAttributeNS(null, "width", 30);
+  svgElem.setAttributeNS(null, "height", 30);
   svgElem.style.display = "block";
 
   var path = document.createElementNS(xmlns, "path");
@@ -107,7 +107,7 @@ class BoatView {
 
   constructor(map, boatId, trackCoordinates, trackColor) {
     const svg = setSVG(trackColor);
-    const boatIcon = Leaflet.divIcon({ className: boatId, iconAnchor: [28, 28] });
+    const boatIcon = Leaflet.divIcon({ className: boatId, iconAnchor: [15, 15] });
 
     this.boatId = boatId;
     this.map = map;
