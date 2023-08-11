@@ -355,7 +355,7 @@ defmodule NauticNetWeb.MapLive do
     live_view_pid = self()
 
     socket.assigns.signals
-    |> Enum.filter(&(&1.channel.type == :position))
+    |> position_signals()
     |> Enum.each(fn signal ->
       Task.start(fn ->
         fetch_coordinates_task(signal, socket.assigns.local_date, live_view_pid)
@@ -827,7 +827,19 @@ defmodule NauticNetWeb.MapLive do
   end
 
   defp position_signals(signals) do
-    Enum.filter(signals, &(&1.channel.type == :position))
+    Enum.filter(signals, fn
+      # If primary_position_sensor_id is set, only return that sensor
+      %{channel: %{type: :position, boat: %{primary_position_sensor_id: id}, sensor: %{id: id}}} ->
+        true
+
+      # if primary_position_sensor_id is not set, return all location sensors
+      %{channel: %{type: :position, boat: %{primary_position_sensor_id: nil}}} ->
+        true
+
+      # Don't return non-location sensors
+      _ ->
+        false
+    end)
   end
 
   defp boat_count(signals) do
