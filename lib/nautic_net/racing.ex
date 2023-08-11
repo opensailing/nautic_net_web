@@ -99,4 +99,34 @@ defmodule NauticNet.Racing do
       }
     end
   end
+
+  def get_boat!(id) do
+    Repo.get!(Boat, id)
+  end
+
+  def change_boat(boat, params \\ %{}) do
+    Boat.user_changeset(boat, params)
+  end
+
+  def update_boat(boat, params \\ %{}) do
+    boat
+    |> Boat.user_changeset(params)
+    |> Repo.update()
+  end
+
+  @doc """
+  Returns a list of all boat sensors that have provided position samples.
+  """
+  def list_location_sensors(boat) do
+    sensor_ids =
+      Sample
+      |> where([s], s.boat_id == ^boat.id and s.type == :position)
+      |> distinct([s], s.sensor_id)
+      |> select([s], s.sensor_id)
+      |> Repo.all()
+
+    Sensor
+    |> where([s], s.id in ^sensor_ids)
+    |> Repo.all()
+  end
 end
