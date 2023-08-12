@@ -18,7 +18,10 @@ defmodule NauticNet.Data.Sample do
     %{type: :true_heading, name: "True Heading", unit: :rad},
     %{type: :true_wind, name: "True Wind", unit: :m_s},
     %{type: :velocity_over_ground, name: "Velocity Over Ground", unit: :m_s},
-    %{type: :water_depth, name: "Water Depth", unit: :m}
+    %{type: :water_depth, name: "Water Depth", unit: :m},
+    %{type: :yaw, name: "Yaw", unit: :rad},
+    %{type: :pitch, name: "Pitch", unit: :rad},
+    %{type: :roll, name: "Roll", unit: :rad}
   ]
 
   @primary_key false
@@ -54,6 +57,26 @@ defmodule NauticNet.Data.Sample do
        %{
          type: type,
          angle: Protobuf.Convert.decode_unit(sample.angle_mrad, :mrad, :rad)
+       }
+     ]}
+  end
+
+  def attrs_from_protobuf_sample(
+        {_field, %Protobuf.AttitudeSample{yaw: yaw, pitch: pitch, roll: roll}}
+      ) do
+    {:ok,
+     [
+       %{
+         type: :yaw,
+         angle: Protobuf.Convert.decode_unit(yaw, :mrad, :rad)
+       },
+       %{
+         type: :pitch,
+         angle: Protobuf.Convert.decode_unit(pitch, :mrad, :rad)
+       },
+       %{
+         type: :roll,
+         angle: Protobuf.Convert.decude_unit(roll, :mrad, :rad)
        }
      ]}
   end
