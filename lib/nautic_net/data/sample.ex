@@ -62,7 +62,7 @@ defmodule NauticNet.Data.Sample do
   end
 
   def attrs_from_protobuf_sample(
-        {_field, %Protobuf.AttitudeSample{yaw: yaw, pitch: pitch, roll: roll}}
+        {_field, %Protobuf.AttitudeSample{yaw_mrad: yaw, pitch_mrad: pitch, roll_mrad: roll}}
       ) do
     {:ok,
      [
@@ -76,7 +76,7 @@ defmodule NauticNet.Data.Sample do
        },
        %{
          type: :roll,
-         angle: Protobuf.Convert.decude_unit(roll, :mrad, :rad)
+         angle: Protobuf.Convert.decode_unit(roll, :mrad, :rad)
        }
      ]}
   end
