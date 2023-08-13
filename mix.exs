@@ -10,6 +10,9 @@ defmodule NauticNet.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
+      preferred_cli_env: [
+        ci: :test
+      ],
 
       # Protocol consolidation causes the CodeReloader to be extremely slow, so let's disable
       # this in the dev environment
@@ -104,6 +107,17 @@ defmodule NauticNet.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
+      ci: [
+        "deps.get",
+        "compile --warnings-as-errors",
+        "format --check-formatted",
+        "hex.audit",
+        "deps.audit",
+        "sobelow -i Config.HTTPS",
+        "credo -i todo",
+        "dialyzer --format github",
+        "test"
+      ],
       setup: ["deps.get", "ecto.setup"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],

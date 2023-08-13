@@ -60,19 +60,5 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-mix-${{ env.cache-name }}-
             ${{ runner.os }}-mix-
-      - name: Install dependencies
-        run: mix deps.get
-      - name: Compile Code
-        run: mix compile --warnings-as-errors
-      - name: Format Code
-        run: mix format --check-formatted
-      - name: Check for retired deps
-        run: mix hex.audit
-      - name: Scan for security vulnerabilities on deps
-        run: mix deps.audit
-      - name: Run security-focused static analysis (ignoring HTTPS until automatic deployment)
-        run: mix sobelow -i Config.HTTPS
-      - name: Run Credo
-        run: mix credo -i todo
-      - name: Run dialyzer
-        run: mix dialyzer --format github
+      - name: Run CI
+        run: mix ci
