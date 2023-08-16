@@ -32,6 +32,16 @@
   </div>
 </div>
 
+<form phx-change="update_from_to">
+  <div class="flex justify-between mt-4">
+    <div>
+      <.input type="time" id="from" errors={[]} name="from" value={@from} />
+    </div>
+    <div>
+      <.input type="time" id="to" errors={[]} name="to" value={@to} />
+    </div>
+  </div>
+</form>
 <div class="my-6 px-4">
   <div
     id="range-slider"
@@ -48,11 +58,18 @@
   </div>
 </div>
 
+<form phx-change="update_playback">
+  <div class="flex justify-between mt-4">
+    <div>
+      <.input type="time" id="playback" errors={[]} name="playback" value={@playback} />
+    </div>
+  </div>
+</form>
 <form
   phx-change={Phoenix.LiveView.JS.dispatch("handleSetPosition")}
   phx-click={Phoenix.LiveView.JS.dispatch("handleSetPosition")}
   phx-throttle="500"
-  class="mt-4"
+  class="mt-2"
 >
   <input
     style="width:100%"
