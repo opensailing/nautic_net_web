@@ -35,7 +35,10 @@ defmodule NauticNetWeb.MapLive do
     %{type: :water_depth, label: "Depth", field: :magnitude, unit: :ft},
     %{type: :battery, label: "Battery", field: :magnitude, unit: :percent, precision: 0},
     %{type: :heel, label: "Heel", field: :angle, unit: :deg},
-    %{type: :rssi, label: "RSSI", field: :magnitude, unit: :dbm, precision: 0}
+    %{type: :rssi, label: "RSSI", field: :magnitude, unit: :dbm, precision: 0},
+    %{type: :yaw, label: "Yaw", field: :angle, unit: :deg},
+    %{type: :pitch, label: "Pitch", field: :angle, unit: :deg},
+    %{type: :roll, label: "Roll", field: :angle, unit: :deg}
   ]
 
   def mount(params, _session, socket) do
