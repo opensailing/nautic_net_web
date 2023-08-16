@@ -167,6 +167,104 @@ defmodule NauticNetWeb.MapLive do
     {:noreply, socket}
   end
 
+  def handle_event("update_from_to", %{"from" => from, "to" => to}, %{assigns: assigns} = socket) do
+    first_sample_time = to_time(assigns.first_sample_at) |> Time.from_iso8601!()
+    last_sample_time = to_time(assigns.last_sample_at) |> Time.from_iso8601!()
+
+    from =
+      case Time.compare(Time.from_iso8601!(from), first_sample_time) do
+        :lt ->
+          Time.to_string(first_sample_time)
+
+        _ ->
+          case Time.compare(Time.from_iso8601!(from), last_sample_time) do
+            :gt -> Time.to_string(last_sample_time)
+            _ -> from
+          end
+      end
+
+    to =
+      case Time.compare(Time.from_iso8601!(to), last_sample_time) do
+        :gt ->
+          Time.to_string(last_sample_time)
+
+        _ ->
+          case Time.compare(Time.from_iso8601!(to), first_sample_time) do
+            :lt ->
+              Time.to_string(first_sample_time)
+
+            _ ->
+              to
+          end
+      end
+
+    range_start_at = build_datetime(assigns.date, from, assigns.first_sample_at)
+    range_end_at = build_datetime(assigns.date, to, assigns.last_sample_at)
+
+    query_params =
+      %{
+        date: assigns.date,
+        from: from,
+        to: to,
+        playback: to_time(assigns.inspect_at),
+        speed: assigns.playback_speed,
+        boats: assigns.boats
+      }
+      |> Plug.Conn.Query.encode()
+
+    socket =
+      socket
+      |> assign(:range_start_at, range_start_at)
+      |> assign(:range_end_at, range_end_at)
+      |> assign(:from, from)
+      |> assign(:to, to)
+      |> push_patch(to: "/?#{query_params}", replace: true)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("update_playback", %{"playback" => playback}, %{assigns: assigns} = socket) do
+    range_start_time = to_time(assigns.range_start_at) |> Time.from_iso8601!()
+    range_end_time = to_time(assigns.range_end_at) |> Time.from_iso8601!()
+
+    playback =
+      case Time.compare(Time.from_iso8601!(playback), range_start_time) do
+        :lt ->
+          Time.to_string(range_start_time)
+
+        _ ->
+          case Time.compare(Time.from_iso8601!(playback), range_end_time) do
+            :gt -> Time.to_string(range_end_time)
+            _ -> playback
+          end
+      end
+
+    playback_dt =
+      build_datetime(assigns.date, playback, assigns.inspect_at)
+      |> DateTime.to_unix()
+
+    new_inspect_at = parse_unix_datetime(playback_dt, assigns.local_date.timezone)
+
+    query_params =
+      %{
+        date: assigns.date,
+        from: assigns.from,
+        to: assigns.to,
+        playback: playback,
+        speed: assigns.playback_speed,
+        boats: assigns.boats
+      }
+      |> Plug.Conn.Query.encode()
+
+    socket =
+      socket
+      |> assign(:inspect_at, new_inspect_at)
+      |> assign(:playback, playback)
+      |> push_patch(to: "/?#{query_params}", replace: true)
+
+    {:noreply, socket}
+  end
+
   def handle_event("update_range", %{"min" => min, "max" => max}, socket) do
     range_start_at = parse_unix_datetime(min, socket.assigns.local_date.timezone)
     range_end_at = parse_unix_datetime(max, socket.assigns.local_date.timezone)
@@ -582,7 +680,7 @@ defmodule NauticNetWeb.MapLive do
 
     range_start_at = build_datetime(params["date"], params["from"], first_sample_at)
     range_end_at = build_datetime(params["date"], params["to"], last_sample_at)
-    playback = build_datetime(params["date"], params["playback"], DateTime.utc_now())
+    playback = build_datetime(params["date"], params["playback"], last_sample_at)
 
     speed =
       if is_nil(params["speed"]) do
@@ -613,11 +711,11 @@ defmodule NauticNetWeb.MapLive do
     |> assign(:playback_speed, speed)
     |> assign(:boats, selected_boats)
     |> constrain_inspect_at()
-    # |> push_event("configure", %{
-    #   id: "range-slider",
-    #   min: DateTime.to_unix(first_sample_at),
-    #   max: DateTime.to_unix(last_sample_at)
-    # })
+    |> push_event("configure", %{
+      id: "range-slider",
+      min: DateTime.to_unix(first_sample_at),
+      max: DateTime.to_unix(last_sample_at)
+    })
     |> push_boat_coordinates()
     |> push_map_state()
     |> select_boat(first_position_signal)
