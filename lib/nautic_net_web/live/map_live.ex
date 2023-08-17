@@ -1008,7 +1008,7 @@ defmodule NauticNetWeb.MapLive do
     |> length()
   end
 
-  defp format_time(datetime) do
-    Timex.format!(datetime, "{h12}:{m}:{s}{am} {Zabbr}")
-  end
+  # defp format_time(datetime) do
+  #   Timex.format!(datetime, "{h12}:{m}:{s}{am} {Zabbr}")
+  # end
 end
