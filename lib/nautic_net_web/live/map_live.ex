@@ -168,47 +168,8 @@ defmodule NauticNetWeb.MapLive do
   end
 
   def handle_event("update_from_to", %{"from" => from, "to" => to}, %{assigns: assigns} = socket) do
-    first_sample_time = to_time(assigns.first_sample_at) |> Time.from_iso8601!()
-    last_sample_time = to_time(assigns.last_sample_at) |> Time.from_iso8601!()
-
-    from2 =
-      case Time.from_iso8601(from) do
-        {:ok, from} -> from
-        _ -> first_sample_time
-      end
-
-    from =
-      case Time.compare(from2, first_sample_time) do
-        :lt ->
-          Time.to_string(first_sample_time)
-
-        _ ->
-          case Time.compare(from2, last_sample_time) do
-            :gt -> Time.to_string(last_sample_time)
-            _ -> from
-          end
-      end
-
-    to2 =
-      case Time.from_iso8601(to) do
-        {:ok, to} -> to
-        _ -> last_sample_time
-      end
-
-    to =
-      case Time.compare(to2, last_sample_time) do
-        :gt ->
-          Time.to_string(last_sample_time)
-
-        _ ->
-          case Time.compare(to2, first_sample_time) do
-            :lt ->
-              Time.to_string(first_sample_time)
-
-            _ ->
-              to
-          end
-      end
+    from = validate_from(assigns, from)
+    to = validate_to(assigns, to)
 
     range_start_at = build_datetime(assigns.date, from, assigns.first_sample_at)
     range_end_at = build_datetime(assigns.date, to, assigns.last_sample_at)
@@ -1011,4 +972,51 @@ defmodule NauticNetWeb.MapLive do
   # defp format_time(datetime) do
   #   Timex.format!(datetime, "{h12}:{m}:{s}{am} {Zabbr}")
   # end
+
+  defp validate_from(assigns, from) do
+    first_sample_time = to_time(assigns.first_sample_at) |> Time.from_iso8601!()
+    last_sample_time = to_time(assigns.last_sample_at) |> Time.from_iso8601!()
+
+    from2 =
+      case Time.from_iso8601(from) do
+        {:ok, from} -> from
+        _ -> first_sample_time
+      end
+
+    case Time.compare(from2, first_sample_time) do
+      :lt ->
+        Time.to_string(first_sample_time)
+
+      _ ->
+        case Time.compare(from2, last_sample_time) do
+          :gt -> Time.to_string(last_sample_time)
+          _ -> from
+        end
+    end
+  end
+
+  defp validate_to(assigns, to) do
+    first_sample_time = to_time(assigns.first_sample_at) |> Time.from_iso8601!()
+    last_sample_time = to_time(assigns.last_sample_at) |> Time.from_iso8601!()
+
+    to2 =
+      case Time.from_iso8601(to) do
+        {:ok, to} -> to
+        _ -> last_sample_time
+      end
+
+    case Time.compare(to2, last_sample_time) do
+      :gt ->
+        Time.to_string(last_sample_time)
+
+      _ ->
+        case Time.compare(to2, first_sample_time) do
+          :lt ->
+            Time.to_string(first_sample_time)
+
+          _ ->
+            to
+        end
+    end
+  end
 end
