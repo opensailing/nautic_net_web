@@ -171,25 +171,37 @@ defmodule NauticNetWeb.MapLive do
     first_sample_time = to_time(assigns.first_sample_at) |> Time.from_iso8601!()
     last_sample_time = to_time(assigns.last_sample_at) |> Time.from_iso8601!()
 
+    from2 =
+      case Time.from_iso8601(from) do
+        {:ok, from} -> from
+        _ -> first_sample_time
+      end
+
     from =
-      case Time.compare(Time.from_iso8601!(from), first_sample_time) do
+      case Time.compare(from2, first_sample_time) do
         :lt ->
           Time.to_string(first_sample_time)
 
         _ ->
-          case Time.compare(Time.from_iso8601!(from), last_sample_time) do
+          case Time.compare(from2, last_sample_time) do
             :gt -> Time.to_string(last_sample_time)
             _ -> from
           end
       end
 
+    to2 =
+      case Time.from_iso8601(to) do
+        {:ok, to} -> to
+        _ -> last_sample_time
+      end
+
     to =
-      case Time.compare(Time.from_iso8601!(to), last_sample_time) do
+      case Time.compare(to2, last_sample_time) do
         :gt ->
           Time.to_string(last_sample_time)
 
         _ ->
-          case Time.compare(Time.from_iso8601!(to), first_sample_time) do
+          case Time.compare(to2, first_sample_time) do
             :lt ->
               Time.to_string(first_sample_time)
 
@@ -218,6 +230,11 @@ defmodule NauticNetWeb.MapLive do
       |> assign(:range_end_at, range_end_at)
       |> assign(:from, from)
       |> assign(:to, to)
+      # |> push_event("configure", %{
+      #   id: "range-slider",
+      #   min: DateTime.to_unix(range_start_at),
+      #   max: DateTime.to_unix(range_end_at)
+      # })
       |> push_patch(to: "/?#{query_params}", replace: true)
 
     {:noreply, socket}
@@ -227,13 +244,19 @@ defmodule NauticNetWeb.MapLive do
     range_start_time = to_time(assigns.range_start_at) |> Time.from_iso8601!()
     range_end_time = to_time(assigns.range_end_at) |> Time.from_iso8601!()
 
+    playback2 =
+      case Time.from_iso8601(playback) do
+        {:ok, playback} -> playback
+        _ -> range_start_time
+      end
+
     playback =
-      case Time.compare(Time.from_iso8601!(playback), range_start_time) do
+      case Time.compare(playback2, range_start_time) do
         :lt ->
           Time.to_string(range_start_time)
 
         _ ->
-          case Time.compare(Time.from_iso8601!(playback), range_end_time) do
+          case Time.compare(playback2, range_end_time) do
             :gt -> Time.to_string(range_end_time)
             _ -> playback
           end
@@ -768,6 +791,12 @@ defmodule NauticNetWeb.MapLive do
 
   defp build_datetime(date, time, _default) do
     date = default_date(date)
+
+    time =
+      case Time.from_iso8601(time) do
+        {:ok, time} -> Time.to_string(time)
+        _ -> "00:00:00"
+      end
 
     "#{date}T#{time}"
     |> NaiveDateTime.from_iso8601!()
