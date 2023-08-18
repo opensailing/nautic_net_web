@@ -314,12 +314,21 @@ defmodule NauticNetWeb.MapLive do
   end
 
   def handle_event("select_date", params, socket) do
-    date = default_date(params["date"])
+    socket = select_date(socket, params)
+    %{assigns: assigns} = socket
 
-    socket =
-      socket
-      |> select_date(params)
-      |> push_patch(to: "/?date=#{date}", replace: true)
+    query_params =
+      %{
+        date: assigns.date,
+        from: assigns.from,
+        to: assigns.to,
+        playback: assigns.playback,
+        speed: assigns.playback_speed,
+        boats: assigns.boats
+      }
+      |> Plug.Conn.Query.encode()
+
+    socket = push_patch(socket, to: "/?#{query_params}", replace: true)
 
     {:noreply, socket}
   end
@@ -662,19 +671,15 @@ defmodule NauticNetWeb.MapLive do
     # Set up the range for the main slider
     {first_sample_at, last_sample_at} = Playback.get_sample_range_on(local_date)
 
-    range_start_at = build_datetime(params["date"], params["from"], first_sample_at)
-    range_end_at = build_datetime(params["date"], params["to"], last_sample_at)
-    playback = build_datetime(params["date"], params["playback"], last_sample_at)
+    from = params["from"] || "00:00:00"
+    to = params["to"] || "23:59:59"
+    playback = params["playback"] || "23:59:59"
 
-    speed =
-      if is_nil(params["speed"]) do
-        1
-      else
-        case Integer.parse(params["speed"]) do
-          {s, _} -> s
-          _ -> 1
-        end
-      end
+    range_start_at = build_datetime(params["date"], from, first_sample_at)
+    range_end_at = build_datetime(params["date"], to, last_sample_at)
+    playback = build_datetime(params["date"], playback, last_sample_at)
+
+    speed = parse_speed(params)
 
     first_position_signal = Enum.find(signals, &(&1.channel.type == :position))
 
@@ -695,7 +700,7 @@ defmodule NauticNetWeb.MapLive do
     |> assign(:playback_speed, speed)
     |> assign(:boats, selected_boats)
     |> constrain_inspect_at()
-    |> push_event("configure", %{
+    |> push_event("configure_date", %{
       id: "range-slider",
       min: DateTime.to_unix(first_sample_at),
       max: DateTime.to_unix(last_sample_at)
@@ -1017,6 +1022,17 @@ defmodule NauticNetWeb.MapLive do
           _ ->
             to
         end
+    end
+  end
+
+  defp parse_speed(params) do
+    if is_nil(params["speed"]) do
+      1
+    else
+      case Integer.parse(params["speed"]) do
+        {s, _} -> s
+        _ -> 1
+      end
     end
   end
 end
