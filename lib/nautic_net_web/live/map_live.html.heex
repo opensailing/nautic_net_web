@@ -43,16 +43,19 @@
     data-to={DateTime.to_unix(@range_end_at)}
   />
 </div>
-<form phx-change="update_from_to">
-  <div class="flex justify-between mt-2 mb-6">
+
+<div class="flex justify-between mt-2 mb-6">
+  <form phx-submit="update_from">
     <div>
-      <.input type="text" id="from" errors={[]} name="from" value={@from} phx-debounce="1000" />
+      <.input type="text" id="from" errors={[]} name="from" value={@from} />
     </div>
+  </form>
+  <form phx-submit="update_to">
     <div>
-      <.input type="text" id="to" errors={[]} name="to" value={@to} phx-debounce="1000" />
+      <.input type="text" id="to" errors={[]} name="to" value={@to} />
     </div>
-  </div>
-</form>
+  </form>
+</div>
 
 <form
   phx-change={Phoenix.LiveView.JS.dispatch("handleSetPosition")}
@@ -72,17 +75,10 @@
   />
 </form>
 
-<form phx-change="update_playback">
+<form phx-submit="update_playback">
   <div class="flex justify-between mb-4">
     <div>
-      <.input
-        type="text"
-        id="playback"
-        errors={[]}
-        name="playback"
-        value={@playback}
-        phx-debounce="1000"
-      />
+      <.input type="text" id="playback" errors={[]} name="playback" value={@playback} />
     </div>
   </div>
 </form>
