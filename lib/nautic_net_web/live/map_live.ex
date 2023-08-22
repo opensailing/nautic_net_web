@@ -167,18 +167,20 @@ defmodule NauticNetWeb.MapLive do
     {:noreply, socket}
   end
 
-  def handle_event("update_from_to", %{"from" => from, "to" => to}, %{assigns: assigns} = socket) do
+  def handle_event("update_from", %{"from" => from}, %{assigns: assigns} = socket) do
+    first_sample_time = to_time(assigns.first_sample_at) |> Time.from_iso8601!()
+    from = validate_time_input(from, first_sample_time)
+
     from = validate_from(assigns, from)
-    to = validate_to(assigns, to)
 
     range_start_at = build_datetime(assigns.date, from, assigns.first_sample_at)
-    range_end_at = build_datetime(assigns.date, to, assigns.last_sample_at)
+    range_end_at = build_datetime(assigns.date, assigns.to, assigns.last_sample_at)
 
     query_params =
       %{
         date: assigns.date,
         from: from,
-        to: to,
+        to: assigns.to,
         playback: to_time(assigns.inspect_at),
         speed: assigns.playback_speed,
         boats: assigns.boats
@@ -190,6 +192,40 @@ defmodule NauticNetWeb.MapLive do
       |> assign(:range_start_at, range_start_at)
       |> assign(:range_end_at, range_end_at)
       |> assign(:from, from)
+      |> push_event("configure", %{
+        id: "range-slider",
+        min: DateTime.to_unix(range_start_at),
+        max: DateTime.to_unix(range_end_at)
+      })
+      |> push_patch(to: "/?#{query_params}", replace: true)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("update_to", %{"to" => to}, %{assigns: assigns} = socket) do
+    last_sample_time = to_time(assigns.last_sample_at) |> Time.from_iso8601!()
+    to = validate_time_input(to, last_sample_time)
+
+    to = validate_to(assigns, to)
+
+    range_start_at = build_datetime(assigns.date, assigns.from, assigns.first_sample_at)
+    range_end_at = build_datetime(assigns.date, to, assigns.last_sample_at)
+
+    query_params =
+      %{
+        date: assigns.date,
+        from: assigns.from,
+        to: to,
+        playback: to_time(assigns.inspect_at),
+        speed: assigns.playback_speed,
+        boats: assigns.boats
+      }
+      |> Plug.Conn.Query.encode()
+
+    socket =
+      socket
+      |> assign(:range_start_at, range_start_at)
+      |> assign(:range_end_at, range_end_at)
       |> assign(:to, to)
       |> push_event("configure", %{
         id: "range-slider",
@@ -204,6 +240,7 @@ defmodule NauticNetWeb.MapLive do
   def handle_event("update_playback", %{"playback" => playback}, %{assigns: assigns} = socket) do
     range_start_time = to_time(assigns.range_start_at) |> Time.from_iso8601!()
     range_end_time = to_time(assigns.range_end_at) |> Time.from_iso8601!()
+    playback = validate_time_input(playback, range_end_time)
 
     playback2 =
       case Time.from_iso8601(playback) do
@@ -1035,4 +1072,46 @@ defmodule NauticNetWeb.MapLive do
       end
     end
   end
+
+  defp validate_time_input(playback, default) do
+    list =
+      playback
+      |> String.trim()
+      |> String.replace(~r/[^:\s0-9]/, "")
+      |> String.split(":")
+      |> Enum.map(fn x ->
+        String.split(x, " ")
+      end)
+      |> List.flatten()
+      |> Enum.map(fn x -> String.trim(x) end)
+      |> Enum.filter(fn x -> x not in [""] end)
+      |> Enum.map(fn x ->
+        case Integer.parse(x) do
+          {n, _str} -> n
+          _ -> :error
+        end
+      end)
+
+    case list do
+      [n1] when n1 >= 0 and n1 <= 23 ->
+        "#{pad_hours(n1)}:00:00"
+
+      [n1, n2] when n1 >= 0 and n1 <= 23 and n2 >= 0 and n2 <= 59 ->
+        "#{pad_hours(n1)}:#{pad_mins(n2)}:00"
+
+      [n1, n2, n3] when n1 >= 0 and n1 <= 23 and n2 >= 0 and n2 <= 59 and n3 >= 0 and n3 <= 59 ->
+        "#{pad_hours(n1)}:#{pad_mins(n2)}:#{pad_mins(n3)}"
+
+      _ ->
+        "#{default}"
+    end
+  end
+
+  defp pad_hours(n) when n >= 0 and n <= 9, do: "0#{n}"
+  defp pad_hours(n) when n >= 10 and n <= 23, do: "#{n}"
+  defp pad_hours(_n), do: "00"
+
+  defp pad_mins(n) when n >= 0 and n <= 9, do: "0#{n}"
+  defp pad_mins(n) when n >= 10 and n <= 59, do: "#{n}"
+  defp pad_mins(_n), do: "00"
 end
