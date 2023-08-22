@@ -1075,14 +1075,14 @@ defmodule NauticNetWeb.MapLive do
 
   defp validate_time_input(playback, default) do
     case parse_time_input(playback) do
-      [n1] when n1 >= 0 and n1 <= 23 ->
-        "#{pad_hours(n1)}:00:00"
+      [n1] ->
+        expand_time(:hour, n1, default)
 
-      [n1, n2] when n1 >= 0 and n1 <= 23 and n2 >= 0 and n2 <= 59 ->
-        "#{pad_hours(n1)}:#{pad_mins(n2)}:00"
+      [n1, n2] ->
+        expand_time(:hour_min, n1, n2, default)
 
-      [n1, n2, n3] when n1 >= 0 and n1 <= 23 and n2 >= 0 and n2 <= 59 and n3 >= 0 and n3 <= 59 ->
-        "#{pad_hours(n1)}:#{pad_mins(n2)}:#{pad_mins(n3)}"
+      [n1, n2, n3] ->
+        expand_time(:hour_min_sec, n1, n2, n3, default)
 
       _ ->
         "#{default}"
@@ -1115,4 +1115,34 @@ defmodule NauticNetWeb.MapLive do
   defp pad_mins(n) when n >= 0 and n <= 9, do: "0#{n}"
   defp pad_mins(n) when n >= 10 and n <= 59, do: "#{n}"
   defp pad_mins(_n), do: "00"
+
+  defp check_hours(n) when n >= 0 and n <= 23, do: true
+  defp check_hours(_n), do: false
+
+  defp check_mins(n) when n >= 0 and n <= 59, do: true
+  defp check_mins(_n), do: false
+
+  defp expand_time(:hour, n1, default) do
+    if check_hours(n1) do
+      "#{pad_hours(n1)}:00:00"
+    else
+      "#{default}"
+    end
+  end
+
+  defp expand_time(:hour_min, n1, n2, default) do
+    if check_hours(n1) and check_mins(n2) do
+      "#{pad_hours(n1)}:#{pad_mins(n2)}:00"
+    else
+      "#{default}"
+    end
+  end
+
+  defp expand_time(:hour_min_sec, n1, n2, n3, default) do
+    if check_hours(n1) and check_mins(n2) and check_mins(n3) do
+      "#{pad_hours(n1)}:#{pad_mins(n2)}:#{pad_mins(n3)}"
+    else
+      "#{default}"
+    end
+  end
 end
