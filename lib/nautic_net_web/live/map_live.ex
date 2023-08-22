@@ -1074,25 +1074,7 @@ defmodule NauticNetWeb.MapLive do
   end
 
   defp validate_time_input(playback, default) do
-    list =
-      playback
-      |> String.trim()
-      |> String.replace(~r/[^:\s0-9]/, "")
-      |> String.split(":")
-      |> Enum.map(fn x ->
-        String.split(x, " ")
-      end)
-      |> List.flatten()
-      |> Enum.map(fn x -> String.trim(x) end)
-      |> Enum.filter(fn x -> x not in [""] end)
-      |> Enum.map(fn x ->
-        case Integer.parse(x) do
-          {n, _str} -> n
-          _ -> :error
-        end
-      end)
-
-    case list do
+    case parse_time_input(playback) do
       [n1] when n1 >= 0 and n1 <= 23 ->
         "#{pad_hours(n1)}:00:00"
 
@@ -1105,6 +1087,25 @@ defmodule NauticNetWeb.MapLive do
       _ ->
         "#{default}"
     end
+  end
+
+  defp parse_time_input(playback) do
+    playback
+    |> String.trim()
+    |> String.replace(~r/[^:\s0-9]/, "")
+    |> String.split(":")
+    |> Enum.map(fn x ->
+      String.split(x, " ")
+    end)
+    |> List.flatten()
+    |> Enum.map(fn x -> String.trim(x) end)
+    |> Enum.filter(fn x -> x not in [""] end)
+    |> Enum.map(fn x ->
+      case Integer.parse(x) do
+        {n, _str} -> n
+        _ -> :error
+      end
+    end)
   end
 
   defp pad_hours(n) when n >= 0 and n <= 9, do: "0#{n}"
