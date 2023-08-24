@@ -32,27 +32,36 @@
   </div>
 </div>
 
-<div class="my-6 px-4">
+<div class="px-4 mt-6">
   <div
     id="range-slider"
     phx-hook="RangeSliderHook"
     phx-update="ignore"
     data-min={DateTime.to_unix(@first_sample_at)}
-    data-from={DateTime.to_unix(@range_start_at)}
     data-max={DateTime.to_unix(@last_sample_at)}
+    data-from={DateTime.to_unix(@range_start_at)}
     data-to={DateTime.to_unix(@range_end_at)}
   />
-  <div class="flex justify-between mt-2">
-    <div>From <%= format_time(@range_start_at) %></div>
-    <div>To <%= format_time(@range_end_at) %></div>
-  </div>
+</div>
+
+<div class="flex justify-between mt-2 mb-6">
+  <form phx-submit="update_from">
+    <div>
+      <.input type="text" id="from" errors={[]} name="from" value={@from} />
+    </div>
+  </form>
+  <form phx-submit="update_to">
+    <div>
+      <.input type="text" id="to" errors={[]} name="to" value={@to} />
+    </div>
+  </form>
 </div>
 
 <form
   phx-change={Phoenix.LiveView.JS.dispatch("handleSetPosition")}
   phx-click={Phoenix.LiveView.JS.dispatch("handleSetPosition")}
   phx-throttle="500"
-  class="mt-4"
+  class="mt-2"
 >
   <input
     style="width:100%"
@@ -66,7 +75,13 @@
   />
 </form>
 
-<div>Inspect <%= format_time(@inspect_at) %></div>
+<form phx-submit="update_playback">
+  <div class="flex justify-between mb-4">
+    <div>
+      <.input type="text" id="playback" errors={[]} name="playback" value={@playback} />
+    </div>
+  </div>
+</form>
 
 <div class="my-4">
   <.button

@@ -35,7 +35,10 @@ defmodule NauticNetWeb.MapLive do
     %{type: :water_depth, label: "Depth", field: :magnitude, unit: :ft},
     %{type: :battery, label: "Battery", field: :magnitude, unit: :percent, precision: 0},
     %{type: :heel, label: "Heel", field: :angle, unit: :deg},
-    %{type: :rssi, label: "RSSI", field: :magnitude, unit: :dbm, precision: 0}
+    %{type: :rssi, label: "RSSI", field: :magnitude, unit: :dbm, precision: 0},
+    %{type: :yaw, label: "Yaw", field: :angle, unit: :deg},
+    %{type: :pitch, label: "Pitch", field: :angle, unit: :deg},
+    %{type: :roll, label: "Roll", field: :angle, unit: :deg}
   ]
 
   def mount(params, _session, socket) do
@@ -164,6 +167,125 @@ defmodule NauticNetWeb.MapLive do
     {:noreply, socket}
   end
 
+  def handle_event("update_from", %{"from" => from}, %{assigns: assigns} = socket) do
+    first_sample_time = to_time(assigns.first_sample_at) |> Time.from_iso8601!()
+    from = validate_time_input(from, first_sample_time)
+
+    from = validate_from(assigns, from)
+
+    range_start_at = build_datetime(assigns.date, from, assigns.first_sample_at)
+    range_end_at = build_datetime(assigns.date, assigns.to, assigns.last_sample_at)
+
+    query_params =
+      %{
+        date: assigns.date,
+        from: from,
+        to: assigns.to,
+        playback: to_time(assigns.inspect_at),
+        speed: assigns.playback_speed,
+        boats: assigns.boats
+      }
+      |> Plug.Conn.Query.encode()
+
+    socket =
+      socket
+      |> assign(:range_start_at, range_start_at)
+      |> assign(:range_end_at, range_end_at)
+      |> assign(:from, from)
+      |> push_event("configure", %{
+        id: "range-slider",
+        min: DateTime.to_unix(range_start_at),
+        max: DateTime.to_unix(range_end_at)
+      })
+      |> push_patch(to: "/?#{query_params}", replace: true)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("update_to", %{"to" => to}, %{assigns: assigns} = socket) do
+    last_sample_time = to_time(assigns.last_sample_at) |> Time.from_iso8601!()
+    to = validate_time_input(to, last_sample_time)
+
+    to = validate_to(assigns, to)
+
+    range_start_at = build_datetime(assigns.date, assigns.from, assigns.first_sample_at)
+    range_end_at = build_datetime(assigns.date, to, assigns.last_sample_at)
+
+    query_params =
+      %{
+        date: assigns.date,
+        from: assigns.from,
+        to: to,
+        playback: to_time(assigns.inspect_at),
+        speed: assigns.playback_speed,
+        boats: assigns.boats
+      }
+      |> Plug.Conn.Query.encode()
+
+    socket =
+      socket
+      |> assign(:range_start_at, range_start_at)
+      |> assign(:range_end_at, range_end_at)
+      |> assign(:to, to)
+      |> push_event("configure", %{
+        id: "range-slider",
+        min: DateTime.to_unix(range_start_at),
+        max: DateTime.to_unix(range_end_at)
+      })
+      |> push_patch(to: "/?#{query_params}", replace: true)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("update_playback", %{"playback" => playback}, %{assigns: assigns} = socket) do
+    range_start_time = to_time(assigns.range_start_at) |> Time.from_iso8601!()
+    range_end_time = to_time(assigns.range_end_at) |> Time.from_iso8601!()
+    playback = validate_time_input(playback, range_end_time)
+
+    playback2 =
+      case Time.from_iso8601(playback) do
+        {:ok, playback} -> playback
+        _ -> range_start_time
+      end
+
+    playback =
+      case Time.compare(playback2, range_start_time) do
+        :lt ->
+          Time.to_string(range_start_time)
+
+        _ ->
+          case Time.compare(playback2, range_end_time) do
+            :gt -> Time.to_string(range_end_time)
+            _ -> playback
+          end
+      end
+
+    playback_dt =
+      build_datetime(assigns.date, playback, assigns.inspect_at)
+      |> DateTime.to_unix()
+
+    new_inspect_at = parse_unix_datetime(playback_dt, assigns.local_date.timezone)
+
+    query_params =
+      %{
+        date: assigns.date,
+        from: assigns.from,
+        to: assigns.to,
+        playback: playback,
+        speed: assigns.playback_speed,
+        boats: assigns.boats
+      }
+      |> Plug.Conn.Query.encode()
+
+    socket =
+      socket
+      |> assign(:inspect_at, new_inspect_at)
+      |> assign(:playback, playback)
+      |> push_patch(to: "/?#{query_params}", replace: true)
+
+    {:noreply, socket}
+  end
+
   def handle_event("update_range", %{"min" => min, "max" => max}, socket) do
     range_start_at = parse_unix_datetime(min, socket.assigns.local_date.timezone)
     range_end_at = parse_unix_datetime(max, socket.assigns.local_date.timezone)
@@ -229,12 +351,21 @@ defmodule NauticNetWeb.MapLive do
   end
 
   def handle_event("select_date", params, socket) do
-    date = default_date(params["date"])
+    socket = select_date(socket, params)
+    %{assigns: assigns} = socket
 
-    socket =
-      socket
-      |> select_date(params)
-      |> push_patch(to: "/?date=#{date}", replace: true)
+    query_params =
+      %{
+        date: assigns.date,
+        from: assigns.from,
+        to: assigns.to,
+        playback: assigns.playback,
+        speed: assigns.playback_speed,
+        boats: assigns.boats
+      }
+      |> Plug.Conn.Query.encode()
+
+    socket = push_patch(socket, to: "/?#{query_params}", replace: true)
 
     {:noreply, socket}
   end
@@ -577,19 +708,15 @@ defmodule NauticNetWeb.MapLive do
     # Set up the range for the main slider
     {first_sample_at, last_sample_at} = Playback.get_sample_range_on(local_date)
 
-    range_start_at = build_datetime(params["date"], params["from"], first_sample_at)
-    range_end_at = build_datetime(params["date"], params["to"], last_sample_at)
-    playback = build_datetime(params["date"], params["playback"], DateTime.utc_now())
+    from = params["from"] || "00:00:00"
+    to = params["to"] || "23:59:59"
+    playback = params["playback"] || "23:59:59"
 
-    speed =
-      if is_nil(params["speed"]) do
-        1
-      else
-        case Integer.parse(params["speed"]) do
-          {s, _} -> s
-          _ -> 1
-        end
-      end
+    range_start_at = build_datetime(params["date"], from, first_sample_at)
+    range_end_at = build_datetime(params["date"], to, last_sample_at)
+    playback = build_datetime(params["date"], playback, last_sample_at)
+
+    speed = parse_speed(params)
 
     first_position_signal = Enum.find(signals, &(&1.channel.type == :position))
 
@@ -610,11 +737,11 @@ defmodule NauticNetWeb.MapLive do
     |> assign(:playback_speed, speed)
     |> assign(:boats, selected_boats)
     |> constrain_inspect_at()
-    # |> push_event("configure", %{
-    #   id: "range-slider",
-    #   min: DateTime.to_unix(first_sample_at),
-    #   max: DateTime.to_unix(last_sample_at)
-    # })
+    |> push_event("configure_date", %{
+      id: "range-slider",
+      min: DateTime.to_unix(first_sample_at),
+      max: DateTime.to_unix(last_sample_at)
+    })
     |> push_boat_coordinates()
     |> push_map_state()
     |> select_boat(first_position_signal)
@@ -667,6 +794,12 @@ defmodule NauticNetWeb.MapLive do
 
   defp build_datetime(date, time, _default) do
     date = default_date(date)
+
+    time =
+      case Time.from_iso8601(time) do
+        {:ok, time} -> Time.to_string(time)
+        _ -> "00:00:00"
+      end
 
     "#{date}T#{time}"
     |> NaiveDateTime.from_iso8601!()
@@ -878,7 +1011,138 @@ defmodule NauticNetWeb.MapLive do
     |> length()
   end
 
-  defp format_time(datetime) do
-    Timex.format!(datetime, "{h12}:{m}:{s}{am} {Zabbr}")
+  # defp format_time(datetime) do
+  #   Timex.format!(datetime, "{h12}:{m}:{s}{am} {Zabbr}")
+  # end
+
+  defp validate_from(assigns, from) do
+    first_sample_time = to_time(assigns.first_sample_at) |> Time.from_iso8601!()
+    last_sample_time = to_time(assigns.last_sample_at) |> Time.from_iso8601!()
+
+    from2 =
+      case Time.from_iso8601(from) do
+        {:ok, from} -> from
+        _ -> first_sample_time
+      end
+
+    case Time.compare(from2, first_sample_time) do
+      :lt ->
+        Time.to_string(first_sample_time)
+
+      _ ->
+        case Time.compare(from2, last_sample_time) do
+          :gt -> Time.to_string(last_sample_time)
+          _ -> from
+        end
+    end
+  end
+
+  defp validate_to(assigns, to) do
+    first_sample_time = to_time(assigns.first_sample_at) |> Time.from_iso8601!()
+    last_sample_time = to_time(assigns.last_sample_at) |> Time.from_iso8601!()
+
+    to2 =
+      case Time.from_iso8601(to) do
+        {:ok, to} -> to
+        _ -> last_sample_time
+      end
+
+    case Time.compare(to2, last_sample_time) do
+      :gt ->
+        Time.to_string(last_sample_time)
+
+      _ ->
+        case Time.compare(to2, first_sample_time) do
+          :lt ->
+            Time.to_string(first_sample_time)
+
+          _ ->
+            to
+        end
+    end
+  end
+
+  defp parse_speed(params) do
+    if is_nil(params["speed"]) do
+      1
+    else
+      case Integer.parse(params["speed"]) do
+        {s, _} -> s
+        _ -> 1
+      end
+    end
+  end
+
+  defp validate_time_input(playback, default) do
+    case parse_time_input(playback) do
+      [n1] ->
+        expand_time(:hour, n1, default)
+
+      [n1, n2] ->
+        expand_time(:hour_min, n1, n2, default)
+
+      [n1, n2, n3] ->
+        expand_time(:hour_min_sec, n1, n2, n3, default)
+
+      _ ->
+        "#{default}"
+    end
+  end
+
+  defp parse_time_input(playback) do
+    playback
+    |> String.trim()
+    |> String.replace(~r/[^:\s0-9]/, "")
+    |> String.split(":")
+    |> Enum.map(fn x ->
+      String.split(x, " ")
+    end)
+    |> List.flatten()
+    |> Enum.map(fn x -> String.trim(x) end)
+    |> Enum.filter(fn x -> x not in [""] end)
+    |> Enum.map(fn x ->
+      case Integer.parse(x) do
+        {n, _str} -> n
+        _ -> :error
+      end
+    end)
+  end
+
+  defp pad_hours(n) when n >= 0 and n <= 9, do: "0#{n}"
+  defp pad_hours(n) when n >= 10 and n <= 23, do: "#{n}"
+  defp pad_hours(_n), do: "00"
+
+  defp pad_mins(n) when n >= 0 and n <= 9, do: "0#{n}"
+  defp pad_mins(n) when n >= 10 and n <= 59, do: "#{n}"
+  defp pad_mins(_n), do: "00"
+
+  defp check_hours(n) when n >= 0 and n <= 23, do: true
+  defp check_hours(_n), do: false
+
+  defp check_mins(n) when n >= 0 and n <= 59, do: true
+  defp check_mins(_n), do: false
+
+  defp expand_time(:hour, n1, default) do
+    if check_hours(n1) do
+      "#{pad_hours(n1)}:00:00"
+    else
+      "#{default}"
+    end
+  end
+
+  defp expand_time(:hour_min, n1, n2, default) do
+    if check_hours(n1) and check_mins(n2) do
+      "#{pad_hours(n1)}:#{pad_mins(n2)}:00"
+    else
+      "#{default}"
+    end
+  end
+
+  defp expand_time(:hour_min_sec, n1, n2, n3, default) do
+    if check_hours(n1) and check_mins(n2) and check_mins(n3) do
+      "#{pad_hours(n1)}:#{pad_mins(n2)}:#{pad_mins(n3)}"
+    else
+      "#{default}"
+    end
   end
 end
