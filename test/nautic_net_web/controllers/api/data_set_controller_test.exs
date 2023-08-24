@@ -2,6 +2,7 @@ defmodule NauticNetWeb.Api.DataSetControllerTest do
   use NauticNetWeb.ConnCase
 
   alias NauticNet.Protobuf
+  alias NauticNet.Protobuf.DataSet
   alias NauticNet.Racing
   alias NauticNet.Util
 
@@ -11,12 +12,12 @@ defmodule NauticNetWeb.Api.DataSetControllerTest do
       now = DateTime.utc_now()
 
       data_set =
-        Protobuf.DataSet.new!(
+        DataSet.new!(
           counter: 0,
           ref: "some ref",
           boat_identifier: "BOAT",
           data_points: [
-            DataPoint.new!(
+            DataSet.DataPoint.new!(
               timestamp: Util.datetime_to_protobuf_timestamp(now),
               hw_id: 123,
               sample:
@@ -29,7 +30,7 @@ defmodule NauticNetWeb.Api.DataSetControllerTest do
           ]
         )
 
-      base64 = data_set |> Protobuf.DataSet.encode() |> Base.encode64()
+      base64 = data_set |> DataSet.encode() |> Base.encode64()
 
       params = %{
         "proto_base64" => base64
