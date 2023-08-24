@@ -15,7 +15,7 @@ export default {
       range: { min, max },
     });
 
-    this.el.noUiSlider.on("update", ([min, max], _handle) => {      
+    this.el.noUiSlider.on("update", ([min, max], _handle) => {
       this.pushEvent("update_range", { min, max });
     });
 
@@ -27,9 +27,15 @@ export default {
       }
     });
 
-    this.handleEvent("configure", ({ min, max }) => {
+    this.handleEvent("configure_date", ({ min, max }) => {
       this.el.noUiSlider.updateOptions({ range: { min, max } });
       this.el.noUiSlider.set([min, max]);
+    });
+
+    this.handleEvent("configure", ({ min, max }) => {
+      // this.el.noUiSlider.updateOptions({ range: { min, max } });
+      this.el.noUiSlider.set([min, max]);
+      // this.el.noUiSlider.reset();
     });
   },
 };
