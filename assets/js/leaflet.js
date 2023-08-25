@@ -100,19 +100,20 @@ function setSVG(trackColor) {
 
 class BoatView {
   boatId = null;
+  boatName = null;
   map = null;
   marker = null;
   polyline = null;
   trackCoordinates = [];
 
-  constructor(map, boatId, trackCoordinates, trackColor) {
+  constructor(map, boatId, boatName, trackCoordinates, trackColor) {
     const svg = setSVG(trackColor);
     const boatIcon = Leaflet.divIcon({ className: boatId, iconAnchor: [15, 15] });
 
     this.boatId = boatId;
     this.map = map;
     this.trackCoordinates = trackCoordinates;
-    this.marker = Leaflet.marker([0, 0], { icon: boatIcon }).addTo(map);
+    this.marker = Leaflet.marker([0, 0], { icon: boatIcon }).addTo(map).bindPopup(boatName);
     this.marker._icon.append(svg);
     this.polyline = Leaflet.polyline([], { color: trackColor }).addTo(map);
   }
@@ -194,6 +195,7 @@ const LeafletHook = {
         return new BoatView(
           map,
           newBv.boat_id,
+          newBv.boat_name,
           newBv.coordinates,
           newBv.track_color
         );
@@ -211,6 +213,7 @@ const LeafletHook = {
         new BoatView(
           map,
           params.boat_view.boat_id,
+          params.boat_view.boat_name,
           params.boat_view.coordinates,
           params.boat_view.track_color
         )
@@ -277,7 +280,7 @@ const LeafletHook = {
 
     window.addEventListener("animateTime", ({ detail: { play, speed } }) => {
       this.timeoutHandler && clearInterval(this.timeoutHandler);
-    
+
       var speed = parseInt(speed);
       if (speed < 1) { speed = 1 }
       if (speed > 32) { speed = 32 }
@@ -285,7 +288,7 @@ const LeafletHook = {
       if (play) {
         const timeoutHandler = setInterval(() => {
           const posElement = window.document.getElementById("position");
-          
+
           if (!posElement) {
             clearInterval(timeoutHandler);
             return;
@@ -308,7 +311,7 @@ const LeafletHook = {
         }, 1000 / speed);
 
         this.timeoutHandler = timeoutHandler;
-      }else{
+      } else {
         this.pushEvent("set_position", {
           play: play
         });
