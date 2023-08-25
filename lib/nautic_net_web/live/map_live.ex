@@ -516,6 +516,7 @@ defmodule NauticNetWeb.MapLive do
 
     boat_view = %{
       "boat_id" => signal.channel.boat.id,
+      "boat_name" => signal.channel.boat.name,
       "track_color" => signal.color,
       "coordinates" =>
         Enum.map(coordinates, fn coord ->
