@@ -156,6 +156,8 @@ const LeafletHook = {
       14
     );
 
+    Leaflet.control.scale().addTo(map);
+
     // var polyline = Leaflet.polyline([], { color: "red" }).addTo(map);
     // let trackCoordinates = [];
 
