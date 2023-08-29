@@ -408,10 +408,14 @@ defmodule NauticNetWeb.MapLive do
   end
 
   def handle_event("change_signal_visibility", params, %{assigns: assigns} = socket) do
+    # IO.inspect(params, label: "params")
+
     new_signals =
       for signal <- assigns.signals do
         %{signal | visible?: params[signal.channel.id] == "true"}
       end
+
+    # IO.inspect(new_signals, label: "new_signals")
 
     # Set track visibility on map if a :position signal's visibility was changed
     socket =
@@ -431,8 +435,17 @@ defmodule NauticNetWeb.MapLive do
     {:noreply, assign(socket, :signals, new_signals)}
   end
 
-  def handle_event("show_signals_modal", _, socket) do
-    {:noreply, assign(socket, :signals_modal_visible?, true)}
+  def handle_event("show_signals_modal", %{"boat-id" => boat_id}, socket) do
+    signal =
+      socket.assigns.signals
+      |> Enum.find(fn %Signal{channel: %Channel{boat: boat}} -> boat.id == boat_id end)
+
+    socket =
+      socket
+      |> assign(:signals_modal_visible?, true)
+      |> assign(:selected_boat, signal.channel.boat)
+
+    {:noreply, socket}
   end
 
   def handle_event("hide_signals_modal", _, socket) do

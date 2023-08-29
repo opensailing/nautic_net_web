@@ -226,7 +226,7 @@
     <div class="flex items-center gap-4 mb-2">
       <h2 class="text-xl font-semibold">Inspector - <%= inspected_boat.name %></h2>
 
-      <.button phx-click="show_signals_modal">
+      <.button phx-click="show_signals_modal" phx-value-boat-id={inspected_boat.id}>
         <%= if visible_boat_signal_count(inspected_boat, @signals) != boat_signal_count(inspected_boat, @signals) do %>
           <%= visible_boat_signal_count(inspected_boat, @signals) %> of
         <% end %>
@@ -268,6 +268,13 @@
   <.modal id="signals_modal" show={true} on_cancel={JS.push("hide_signals_modal")}>
     <:title>Select Signals for <%= @selected_boat.name %></:title>
     <form phx-change="change_signal_visibility">
+      <.input
+        type="hidden"
+        id="selected_boat_id"
+        name="selected_boat_id"
+        value={@selected_boat && @selected_boat.id}
+        errors={[]}
+      />
       <%= for signal <- boat_signals(@selected_boat, @signals) do %>
         <fieldset class="my-3">
           <.input
