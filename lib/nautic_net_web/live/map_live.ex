@@ -59,6 +59,7 @@ defmodule NauticNetWeb.MapLive do
       # Data
       |> assign(:signals, [])
       |> assign(:signal_views, @signal_views)
+      |> assign(:inspected_boats, [])
 
       # Map
       |> assign(:needs_centering?, true)
@@ -438,6 +439,16 @@ defmodule NauticNetWeb.MapLive do
     {:noreply, assign(socket, :signals_modal_visible?, false)}
   end
 
+  def handle_event("remove_inspector", %{"boat-id" => boat_id}, socket) do
+    inspected_boats =
+      socket.assigns.inspected_boats
+      |> Enum.filter(fn boat -> boat.id != boat_id end)
+
+    socket = assign(socket, :inspected_boats, inspected_boats)
+
+    {:noreply, socket}
+  end
+
   # PubSub message from NauticNet.Ingest
   # def handle_info({:new_samples, samples}, %{assigns: %{live?: true} = assigns} = socket) do
   #   # Only care about samples that are "today"
@@ -773,7 +784,12 @@ defmodule NauticNetWeb.MapLive do
 
   defp select_boat(socket, %Signal{channel: %Channel{boat: boat}}), do: select_boat(socket, boat)
   defp select_boat(socket, %Channel{boat: boat}), do: select_boat(socket, boat)
-  defp select_boat(socket, %Boat{} = boat), do: assign(socket, :selected_boat, boat)
+
+  defp select_boat(socket, %Boat{} = boat) do
+    socket
+    |> assign(:selected_boat, boat)
+    |> assign(:inspected_boats, [boat | socket.assigns.inspected_boats])
+  end
 
   defp select_boat(socket, boat_id) when is_binary(boat_id) do
     signal = Enum.find(socket.assigns.signals, &(&1.channel.boat.id == boat_id))
