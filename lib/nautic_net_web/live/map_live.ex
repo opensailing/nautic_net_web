@@ -408,14 +408,14 @@ defmodule NauticNetWeb.MapLive do
   end
 
   def handle_event("change_signal_visibility", params, %{assigns: assigns} = socket) do
-    # IO.inspect(params, label: "params")
-
     new_signals =
       for signal <- assigns.signals do
-        %{signal | visible?: params[signal.channel.id] == "true"}
+        if signal.channel.boat.id == params["selected_boat_id"] do
+          %{signal | visible?: params[signal.channel.id] == "true"}
+        else
+          %{signal | visible?: signal.visible? || params[signal.channel.id] == "true"}
+        end
       end
-
-    # IO.inspect(new_signals, label: "new_signals")
 
     # Set track visibility on map if a :position signal's visibility was changed
     socket =
@@ -799,9 +799,11 @@ defmodule NauticNetWeb.MapLive do
   defp select_boat(socket, %Channel{boat: boat}), do: select_boat(socket, boat)
 
   defp select_boat(socket, %Boat{} = boat) do
+    inspected_boats = socket.assigns.inspected_boats ++ [boat]
+
     socket
     |> assign(:selected_boat, boat)
-    |> assign(:inspected_boats, [boat | socket.assigns.inspected_boats])
+    |> assign(:inspected_boats, inspected_boats)
   end
 
   defp select_boat(socket, boat_id) when is_binary(boat_id) do
