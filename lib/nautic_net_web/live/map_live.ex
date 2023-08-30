@@ -59,6 +59,7 @@ defmodule NauticNetWeb.MapLive do
       # Data
       |> assign(:signals, [])
       |> assign(:signal_views, @signal_views)
+      |> assign(:inspected_boats, [])
 
       # Map
       |> assign(:needs_centering?, true)
@@ -409,7 +410,11 @@ defmodule NauticNetWeb.MapLive do
   def handle_event("change_signal_visibility", params, %{assigns: assigns} = socket) do
     new_signals =
       for signal <- assigns.signals do
-        %{signal | visible?: params[signal.channel.id] == "true"}
+        if signal.channel.boat.id == params["selected_boat_id"] do
+          %{signal | visible?: params[signal.channel.id] == "true"}
+        else
+          %{signal | visible?: signal.visible? || params[signal.channel.id] == "true"}
+        end
       end
 
     # Set track visibility on map if a :position signal's visibility was changed
@@ -430,12 +435,31 @@ defmodule NauticNetWeb.MapLive do
     {:noreply, assign(socket, :signals, new_signals)}
   end
 
-  def handle_event("show_signals_modal", _, socket) do
-    {:noreply, assign(socket, :signals_modal_visible?, true)}
+  def handle_event("show_signals_modal", %{"boat-id" => boat_id}, socket) do
+    signal =
+      socket.assigns.signals
+      |> Enum.find(fn %Signal{channel: %Channel{boat: boat}} -> boat.id == boat_id end)
+
+    socket =
+      socket
+      |> assign(:signals_modal_visible?, true)
+      |> assign(:selected_boat, signal.channel.boat)
+
+    {:noreply, socket}
   end
 
   def handle_event("hide_signals_modal", _, socket) do
     {:noreply, assign(socket, :signals_modal_visible?, false)}
+  end
+
+  def handle_event("remove_inspector", %{"boat-id" => boat_id}, socket) do
+    inspected_boats =
+      socket.assigns.inspected_boats
+      |> Enum.filter(fn boat -> boat.id != boat_id end)
+
+    socket = assign(socket, :inspected_boats, inspected_boats)
+
+    {:noreply, socket}
   end
 
   # PubSub message from NauticNet.Ingest
@@ -773,7 +797,14 @@ defmodule NauticNetWeb.MapLive do
 
   defp select_boat(socket, %Signal{channel: %Channel{boat: boat}}), do: select_boat(socket, boat)
   defp select_boat(socket, %Channel{boat: boat}), do: select_boat(socket, boat)
-  defp select_boat(socket, %Boat{} = boat), do: assign(socket, :selected_boat, boat)
+
+  defp select_boat(socket, %Boat{} = boat) do
+    inspected_boats = socket.assigns.inspected_boats ++ [boat]
+
+    socket
+    |> assign(:selected_boat, boat)
+    |> assign(:inspected_boats, inspected_boats)
+  end
 
   defp select_boat(socket, boat_id) when is_binary(boat_id) do
     signal = Enum.find(socket.assigns.signals, &(&1.channel.boat.id == boat_id))

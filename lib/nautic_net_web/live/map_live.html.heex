@@ -221,47 +221,60 @@
   <.button :if={@tracks_visible?} phx-click="clear">Clear</.button>
 </div>
 
-<div class="my-4 border rounded-lg px-4 py-2">
-  <div class="flex items-center gap-4 mb-2">
-    <h2 class="text-xl font-semibold">Inspector</h2>
-    <form phx-change="select_boat">
-      <.input
-        type="select"
-        id="boat_id"
-        name="boat_id"
-        value={@selected_boat && @selected_boat.id}
-        options={boat_options(@signals)}
-        errors={[]}
-      />
-    </form>
-    <.button phx-click="show_signals_modal">
-      <%= if visible_boat_signal_count(@selected_boat, @signals) != boat_signal_count(@selected_boat, @signals) do %>
-        <%= visible_boat_signal_count(@selected_boat, @signals) %> of
+<%= for inspected_boat <- @inspected_boats do %>
+  <div class="my-4 border rounded-lg px-4 py-2">
+    <div class="flex items-center gap-4 mb-2">
+      <h2 class="text-xl font-semibold">Inspector - <%= inspected_boat.name %></h2>
+
+      <.button phx-click="show_signals_modal" phx-value-boat-id={inspected_boat.id}>
+        <%= if visible_boat_signal_count(inspected_boat, @signals) != boat_signal_count(inspected_boat, @signals) do %>
+          <%= visible_boat_signal_count(inspected_boat, @signals) %> of
+        <% end %>
+        <%= boat_signal_count(
+          inspected_boat,
+          @signals
+        ) %> signals
+        <%= if boat_sensor_count(inspected_boat, @signals) > 1 do %>
+          from <%= boat_sensor_count(inspected_boat, @signals) %> sensors
+        <% end %>
+      </.button>
+      <.button phx-click="remove_inspector" phx-value-boat-id={inspected_boat.id}>Remove</.button>
+    </div>
+    <div class="grid grid-cols-4 gap-4">
+      <%= for signal_view <- @signal_views, signal <- visible_boat_signals(inspected_boat, @signals, signal_view.type) do %>
+        <.signal_view
+          signal={signal}
+          show_sensor={boat_sensor_count(inspected_boat, @signals) > 1}
+          {signal_view}
+        />
       <% end %>
-      <%= boat_signal_count(
-        @selected_boat,
-        @signals
-      ) %> signals
-      <%= if boat_sensor_count(@selected_boat, @signals) > 1 do %>
-        from <%= boat_sensor_count(@selected_boat, @signals) %> sensors
-      <% end %>
-    </.button>
+    </div>
   </div>
-  <div class="grid grid-cols-4 gap-4">
-    <%= for signal_view <- @signal_views, signal <- visible_boat_signals(@selected_boat, @signals, signal_view.type) do %>
-      <.signal_view
-        signal={signal}
-        show_sensor={boat_sensor_count(@selected_boat, @signals) > 1}
-        {signal_view}
-      />
-    <% end %>
-  </div>
-</div>
+<% end %>
+
+<form phx-submit="select_boat" class="flex">
+  <.input
+    type="select"
+    id="boat_id"
+    name="boat_id"
+    value={@selected_boat && @selected_boat.id}
+    options={boat_options(@signals)}
+    errors={[]}
+  />
+  <.button type="submit" class="ml-4">Inspect Boat</.button>
+</form>
 
 <%= if @signals_modal_visible? do %>
   <.modal id="signals_modal" show={true} on_cancel={JS.push("hide_signals_modal")}>
     <:title>Select Signals for <%= @selected_boat.name %></:title>
     <form phx-change="change_signal_visibility">
+      <.input
+        type="hidden"
+        id="selected_boat_id"
+        name="selected_boat_id"
+        value={@selected_boat && @selected_boat.id}
+        errors={[]}
+      />
       <%= for signal <- boat_signals(@selected_boat, @signals) do %>
         <fieldset class="my-3">
           <.input
