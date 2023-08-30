@@ -1,4 +1,53 @@
-<div id="map" phx-hook="LeafletHook" phx-update="ignore" />
+<div class="flex">
+  <div id="map" phx-hook="LeafletHook" phx-update="ignore" />
+
+  <div id="inspectors">
+    <%= for inspected_boat <- @inspected_boats do %>
+      <div class="border rounded-lg px-4 py-2">
+        <div class="flex items-center gap-4 mb-2">
+          <h2 class="text-xl font-semibold"><%= inspected_boat.name %></h2>
+
+          <.button phx-click="show_signals_modal" phx-value-boat-id={inspected_boat.id}>
+            <%= if visible_boat_signal_count(inspected_boat, @signals) != boat_signal_count(inspected_boat, @signals) do %>
+              <%= visible_boat_signal_count(inspected_boat, @signals) %> of
+            <% end %>
+            <%= boat_signal_count(
+              inspected_boat,
+              @signals
+            ) %> signals
+            <%= if boat_sensor_count(inspected_boat, @signals) > 1 do %>
+              from <%= boat_sensor_count(inspected_boat, @signals) %> sensors
+            <% end %>
+          </.button>
+          <.button phx-click="remove_inspector" phx-value-boat-id={inspected_boat.id}>
+            Remove
+          </.button>
+        </div>
+        <div class="grid grid-cols-4 gap-4">
+          <%= for signal_view <- @signal_views, signal <- visible_boat_signals(inspected_boat, @signals, signal_view.type) do %>
+            <.signal_view
+              signal={signal}
+              show_sensor={boat_sensor_count(inspected_boat, @signals) > 1}
+              {signal_view}
+            />
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <form phx-submit="select_boat" class="flex px-4">
+      <.input
+        type="select"
+        id="boat_id"
+        name="boat_id"
+        value={@selected_boat && @selected_boat.id}
+        options={boat_options(@signals)}
+        errors={[]}
+      />
+      <.button type="submit" class="ml-4">Inspect Boat</.button>
+    </form>
+  </div>
+</div>
 
 <div class="flex items-center justify-between my-4">
   <div class="flex items-center gap-4">
@@ -220,49 +269,6 @@
   <.button phx-click="toggle_track"><%= if @tracks_visible?, do: "Hide", else: "Show" %></.button>
   <.button :if={@tracks_visible?} phx-click="clear">Clear</.button>
 </div>
-
-<%= for inspected_boat <- @inspected_boats do %>
-  <div class="my-4 border rounded-lg px-4 py-2">
-    <div class="flex items-center gap-4 mb-2">
-      <h2 class="text-xl font-semibold">Inspector - <%= inspected_boat.name %></h2>
-
-      <.button phx-click="show_signals_modal" phx-value-boat-id={inspected_boat.id}>
-        <%= if visible_boat_signal_count(inspected_boat, @signals) != boat_signal_count(inspected_boat, @signals) do %>
-          <%= visible_boat_signal_count(inspected_boat, @signals) %> of
-        <% end %>
-        <%= boat_signal_count(
-          inspected_boat,
-          @signals
-        ) %> signals
-        <%= if boat_sensor_count(inspected_boat, @signals) > 1 do %>
-          from <%= boat_sensor_count(inspected_boat, @signals) %> sensors
-        <% end %>
-      </.button>
-      <.button phx-click="remove_inspector" phx-value-boat-id={inspected_boat.id}>Remove</.button>
-    </div>
-    <div class="grid grid-cols-4 gap-4">
-      <%= for signal_view <- @signal_views, signal <- visible_boat_signals(inspected_boat, @signals, signal_view.type) do %>
-        <.signal_view
-          signal={signal}
-          show_sensor={boat_sensor_count(inspected_boat, @signals) > 1}
-          {signal_view}
-        />
-      <% end %>
-    </div>
-  </div>
-<% end %>
-
-<form phx-submit="select_boat" class="flex">
-  <.input
-    type="select"
-    id="boat_id"
-    name="boat_id"
-    value={@selected_boat && @selected_boat.id}
-    options={boat_options(@signals)}
-    errors={[]}
-  />
-  <.button type="submit" class="ml-4">Inspect Boat</.button>
-</form>
 
 <%= if @signals_modal_visible? do %>
   <.modal id="signals_modal" show={true} on_cancel={JS.push("hide_signals_modal")}>
