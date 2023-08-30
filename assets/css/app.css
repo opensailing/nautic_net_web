@@ -7,7 +7,11 @@
 
 #map {
     height: 700px;
-    width: 100%;
+    width: 70%;
+}
+
+#inspectors {
+    width: 30%;
 }
 
 .centralized {
