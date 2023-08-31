@@ -7,12 +7,12 @@
 
 #map {
     height: 700px;
-    width: 70%;
+    /* width: 70%; */
 }
 
-#inspectors {
+/* #inspectors {
     width: 30%;
-}
+} */
 
 .centralized {
     display: grid;
