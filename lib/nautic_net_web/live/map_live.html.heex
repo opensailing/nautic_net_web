@@ -219,34 +219,29 @@
   </div>
 </div>
 
-<div class="px-4 mt-6">
-  <div
-    id="range-slider"
-    phx-hook="RangeSliderHook"
-    phx-update="ignore"
-    data-min={DateTime.to_unix(@first_sample_at)}
-    data-max={DateTime.to_unix(@last_sample_at)}
-    data-from={DateTime.to_unix(@range_start_at)}
-    data-to={DateTime.to_unix(@range_end_at)}
-  />
-</div>
-
-<div class="flex justify-between mt-2 mb-6">
-  <form phx-submit="update_from">
+<div class="flex justify-between items-center my-6">
+  <form class="w-1/9" phx-submit="update_from">
     <div>
       <.input type="text" id="from" errors={[]} name="from" value={@from} />
     </div>
   </form>
-  <form phx-submit="update_to">
+  <div class="w-3/4">
+    <div
+      id="range-slider"
+      phx-hook="RangeSliderHook"
+      phx-update="ignore"
+      data-min={DateTime.to_unix(@first_sample_at)}
+      data-max={DateTime.to_unix(@last_sample_at)}
+      data-from={DateTime.to_unix(@range_start_at)}
+      data-to={DateTime.to_unix(@range_end_at)}
+    />
+  </div>
+  <form class="w-1/9" phx-submit="update_to">
     <div>
       <.input type="text" id="to" errors={[]} name="to" value={@to} />
     </div>
   </form>
 </div>
-
-<%!-- <div class="my-4 border rounded-lg px-4 py-2">
-  
-</div> --%>
 
 <table>
   <%= for %{channel: %{boat: boat}} = signal <- position_signals(@signals) do %>
