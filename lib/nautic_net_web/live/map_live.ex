@@ -59,13 +59,16 @@ defmodule NauticNetWeb.MapLive do
       # Data
       |> assign(:signals, [])
       |> assign(:signal_views, @signal_views)
-      |> assign(:inspected_boats, [])
 
       # Map
       |> assign(:needs_centering?, true)
       |> assign(:bounding_box, @default_bounding_box)
       |> assign(:zoom_level, 15)
       |> assign(:play, false)
+
+      # selected_boat
+      |> assign(:selected_boat, nil)
+      |> assign(:signals_modal_visible?, false)
 
       # Timeline
       |> select_date(params)
@@ -743,8 +746,6 @@ defmodule NauticNetWeb.MapLive do
 
     speed = parse_speed(params)
 
-    first_position_signal = Enum.find(signals, &(&1.channel.type == :position))
-
     socket
     |> assign(:local_date, local_date)
     |> assign(:date, Date.to_string(local_date.date))
@@ -761,6 +762,7 @@ defmodule NauticNetWeb.MapLive do
     |> assign(:playback, playback)
     |> assign(:playback_speed, speed)
     |> assign(:boats, selected_boats)
+    |> assign(:inspected_boats, [])
     |> constrain_inspect_at()
     |> push_event("configure_date", %{
       id: "range-slider",
@@ -769,7 +771,6 @@ defmodule NauticNetWeb.MapLive do
     })
     |> push_boat_coordinates()
     |> push_map_state()
-    |> select_boat(first_position_signal)
   end
 
   # Ensure inspect_at lies within the range
