@@ -524,10 +524,13 @@ defmodule NauticNetWeb.MapLive do
   end
 
   def handle_info({:push_boat_view, boat_view, center_coord}, socket) do
+    boat_id = boat_view["boat_id"]
+    visible? = boat_id in socket.assigns.boats
+
     socket =
       socket
       |> push_event("add_boat_view", %{"boat_view" => boat_view})
-      |> push_event("set_boat_visible", %{boat_id: boat_view["boat_id"], visible: false})
+      |> push_event("set_boat_visible", %{boat_id: boat_id, visible: visible?})
       # Needed to set time bounds for polyline
       |> push_map_state()
       |> maybe_recenter_map(center_coord)
