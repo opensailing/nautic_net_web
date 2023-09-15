@@ -527,6 +527,7 @@ defmodule NauticNetWeb.MapLive do
     socket =
       socket
       |> push_event("add_boat_view", %{"boat_view" => boat_view})
+      |> push_event("set_boat_visible", %{boat_id: boat_view["boat_id"], visible: false})
       # Needed to set time bounds for polyline
       |> push_map_state()
       |> maybe_recenter_map(center_coord)
@@ -1006,6 +1007,7 @@ defmodule NauticNetWeb.MapLive do
       _ ->
         false
     end)
+    |> Enum.uniq_by(fn %{channel: %{boat: boat}} -> boat.id end)
   end
 
   defp boat_count(signals) do
